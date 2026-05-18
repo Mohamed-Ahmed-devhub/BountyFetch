@@ -1,0 +1,39 @@
+// ===== مخطط قاعدة البيانات (Prisma Schema) =====
+// يعرّف جداول البيانات وعلاقاتها
+// بعد أي تعديل، شغّل: npm run db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// جدول المستخدمين
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  skills    String[] // مصفوفة المهارات: ["HTML", "CSS", "React"]
+  language  String   @default("ar") // اللغة المفضلة
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// جدول المهام المصطادة
+model Task {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  skills          String[] // المهارات المطلوبة للمهمة
+  estimatedBudget String   @default("غير محدد")
+  source          String   // "reddit" | "telegram" | "twitter" | "rss"
+  sourceUrl       String   @unique // لمنع تكرار نفس المهمة
+  urgency         String   @default("medium") // "low" | "medium" | "high"
+  createdAt       DateTime @default(now())
+
+  @@index([source, createdAt]) // فهرس لتسريع الاستعلامات
+}

@@ -1,0 +1,36 @@
+{
+  "app": {
+    "name": "Task Bounty Agent",
+    "tagline": "Hunt your coding tasks with AI"
+  },
+  "nav": {
+    "radar": "Radar",
+    "codeShield": "Code Shield",
+    "profile": "My Profile",
+    "logout": "Logout"
+  },
+  "radar": {
+    "title": "Task Radar",
+    "live": "Live",
+    "noTasks": "No tasks found yet, hang tight..."
+  },
+  "proposal": {
+    "generateArabic": "ولّد بروبوزال بالعربية",
+    "generateEnglish": "Generate in English",
+    "copy": "Copy Proposal",
+    "copied": "Copied! ✓"
+  },
+  "codeShield": {
+    "title": "AI Code Shield",
+    "placeholder": "Paste your code or question here...",
+    "send": "Send",
+    "welcome": "Hello! I'm the AI Code Shield 🛡️ Send me your buggy code and I'll help fix it."
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Create Account",
+    "email": "Email Address",
+    "password": "Password",
+    "name": "Full Name"
+  }
+}
