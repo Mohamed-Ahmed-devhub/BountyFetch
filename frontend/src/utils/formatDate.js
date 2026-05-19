@@ -1,23 +1,22 @@
-// ===== دوال تنسيق التواريخ =====
-// تحوّل التواريخ الخام لصيغ قابلة للقراءة بالعربية والإنجليزية
+// ===================================================
+// formatDate.js - دوال تنسيق التاريخ والوقت
+// ===================================================
 
-// تنسيق: "منذ 5 دقائق" أو "5 minutes ago"
+// تحويل التاريخ إلى صيغة "منذ X دقائق"
 export function timeAgo(dateString, lang = 'ar') {
+  const now  = new Date()
   const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now - date
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
+  const diff = Math.floor((now - date) / 1000) // الفرق بالثواني
 
   if (lang === 'ar') {
-    if (diffMins < 1)    return 'الآن'
-    if (diffMins < 60)   return `منذ ${diffMins} دقيقة`
-    if (diffHours < 24)  return `منذ ${diffHours} ساعة`
-    return `منذ ${Math.floor(diffHours / 24)} يوم`
+    if (diff < 60)   return 'منذ لحظات'
+    if (diff < 3600) return `منذ ${Math.floor(diff / 60)} دقيقة`
+    if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} ساعة`
+    return `منذ ${Math.floor(diff / 86400)} يوم`
   } else {
-    if (diffMins < 1)    return 'just now'
-    if (diffMins < 60)   return `${diffMins}m ago`
-    if (diffHours < 24)  return `${diffHours}h ago`
-    return `${Math.floor(diffHours / 24)}d ago`
+    if (diff < 60)   return 'just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    return `${Math.floor(diff / 86400)}d ago`
   }
 }

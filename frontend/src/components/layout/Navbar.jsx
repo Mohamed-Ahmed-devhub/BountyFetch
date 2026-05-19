@@ -1,31 +1,73 @@
-// ===== شريط التنقل العلوي =====
-// يظهر في كل صفحات التطبيق بعد تسجيل الدخول
-// يحتوي: الشعار + روابط التنقل + زر تغيير اللغة + صورة المستخدم
-// TODO (الأسبوع 4): ربط زر اللغة بـ LanguageContext لتبديل RTL/LTR
+// ===================================================
+// Navbar.jsx - شريط التنقل العلوي
+// يحتوي على: اسم التطبيق، روابط التنقل، زر تغيير اللغة
+// ===================================================
+import React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useLanguage } from '../../context/LanguageContext.jsx'
+import Button from '../ui/Button.jsx'
 
 function Navbar() {
+  const { t } = useTranslation()
+  const { user, logout } = useAuth()
+  const { language, toggleLanguage } = useLanguage()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
+
   return (
-    <nav className="bg-dark-card border-b border-dark-border px-6 py-3 flex items-center justify-between">
-      {/* الشعار */}
-      <div className="flex items-center gap-2">
-        <span className="text-2xl">🎯</span>
-        <span className="font-bold text-neon-cyan text-lg">صيّاد التاسكات</span>
-      </div>
+    <nav className="sticky top-0 z-50 border-b border-brand-border bg-brand-dark/80 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        
+        {/* شعار التطبيق */}
+        <Link to="/" className="flex items-center gap-2">
+          <span className="text-2xl">🎯</span>
+          <span className="neon-text font-bold text-lg hidden sm:block">
+            {t('app.name')}
+          </span>
+        </Link>
 
-      {/* روابط التنقل */}
-      <div className="flex items-center gap-6">
-        <a href="/dashboard"   className="text-gray-400 hover:text-neon-cyan transition">الرادار</a>
-        <a href="/code-shield" className="text-gray-400 hover:text-neon-cyan transition">درع الكود</a>
-      </div>
+        {/* روابط التنقل + الأدوات */}
+        <div className="flex items-center gap-3">
+          
+          {/* زر تغيير اللغة */}
+          <button
+            onClick={toggleLanguage}
+            className="text-sm px-3 py-1.5 rounded-lg border border-brand-border text-gray-400 hover:text-brand-cyan hover:border-brand-cyan transition-all"
+            title="تغيير اللغة / Change Language"
+          >
+            {language === 'ar' ? 'EN' : 'عربي'}
+          </button>
 
-      {/* زر اللغة + الملف الشخصي */}
-      <div className="flex items-center gap-3">
-        {/* TODO: ربط هذا الزر بـ LanguageContext */}
-        <button className="text-sm border border-dark-border px-3 py-1 rounded-lg text-gray-400 hover:text-white hover:border-neon-purple transition">
-          EN / ع
-        </button>
-        <div className="w-8 h-8 rounded-full bg-neon-purple/30 border border-neon-purple flex items-center justify-center text-sm">
-          👤
+          {user ? (
+            <>
+              {/* روابط المستخدم المسجل */}
+              <Link to="/dashboard" className="text-gray-400 hover:text-brand-cyan transition-colors text-sm">
+                {t('nav.radar')}
+              </Link>
+              <Link to="/code-shield" className="text-gray-400 hover:text-brand-cyan transition-colors text-sm">
+                {t('nav.code_shield')}
+              </Link>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                {t('nav.logout')}
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* روابط الزوار */}
+              <Link to="/login">
+                <Button variant="ghost" size="sm">{t('nav.login')}</Button>
+              </Link>
+              <Link to="/register">
+                <Button variant="primary" size="sm">{t('nav.register')}</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

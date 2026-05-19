@@ -1,22 +1,42 @@
-// ===== الشريط الجانبي =====
-// يظهر في لوحة التحكم لعرض فلاتر المهارات والمصادر
-// TODO (الأسبوع 3): ربط الفلاتر بحالة التطبيق لتصفية المهام
+// ===================================================
+// Sidebar.jsx - الشريط الجانبي للفلترة في الرادار
+// ===================================================
+import React from 'react'
+import { useTranslation } from 'react-i18next'
+import Badge from '../ui/Badge.jsx'
 
-function Sidebar() {
+// قائمة المهارات المتاحة للفلترة
+const SKILLS = ['HTML', 'CSS', 'JavaScript', 'React', 'Python', 'WordPress', 'Responsive', 'Figma']
+
+function Sidebar({ selectedSkills = [], onSkillToggle }) {
+  const { t } = useTranslation()
+
   return (
-    <aside className="w-64 bg-dark-card border-e border-dark-border h-screen p-4 flex flex-col gap-4">
-      {/* قسم الفلاتر */}
-      <div>
-        <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-3">فلترة حسب المهارة</h3>
-        {/* TODO: قائمة ديناميكية من مهارات المستخدم */}
-        <p className="text-gray-600 text-sm">قيد البناء...</p>
-      </div>
-
-      {/* قسم المصادر */}
-      <div>
-        <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-3">المصادر</h3>
-        {/* TODO: مصادر البيانات (Telegram, Reddit, Twitter) */}
-        <p className="text-gray-600 text-sm">قيد البناء...</p>
+    <aside className="w-64 border-e border-brand-border p-4 h-full">
+      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+        {t('radar.filter_label')}
+      </h3>
+      
+      {/* قائمة المهارات */}
+      <div className="flex flex-wrap gap-2">
+        {SKILLS.map((skill) => {
+          const isSelected = selectedSkills.includes(skill)
+          return (
+            <button
+              key={skill}
+              onClick={() => onSkillToggle(skill)}
+              className={`
+                text-xs px-3 py-1.5 rounded-full border transition-all
+                ${isSelected 
+                  ? 'bg-brand-cyan text-brand-dark border-brand-cyan font-semibold' 
+                  : 'border-brand-border text-gray-400 hover:border-brand-cyan hover:text-brand-cyan'
+                }
+              `}
+            >
+              {skill}
+            </button>
+          )
+        })}
       </div>
     </aside>
   )

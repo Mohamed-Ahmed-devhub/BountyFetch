@@ -1,41 +1,60 @@
-// ===== إعداد Socket.io للتواصل Real-time =====
-// يستخدم لإرسال المهام الجديدة للمستخدمين في اللحظة ذاتها
+// ===================================================
+// socket.js - إعداد Socket.io للاتصال الفوري
+// يرسل المهام الجديدة للمستخدمين المتصلين مباشرة
+// ===================================================
+const { Server } = require('socket.io')
+const jwt        = require('jsonwebtoken')
 
-import { Server } from 'socket.io'
+let io = null
 
-let io = null // المتغير العام لـ Socket.io instance
-
-export function initSocket(httpServer) {
-  io = new Server(httpServer, {
+function initSocket(server) {
+  io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-      methods: ['GET', 'POST']
+      origin:      process.env.FRONTEND_URL,
+      credentials: true,
+    },
+  })
+
+  // التحقق من هوية المستخدم عند الاتصال
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token
+    if (!token) return next(new Error('التحقق من الهوية مطلوب'))
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET)
+      socket.userId = decoded.userId
+      next()
+    } catch {
+      next(new Error('Token غير صالح'))
     }
   })
 
   io.on('connection', (socket) => {
-    console.log(`✅ مستخدم متصل: ${socket.id}`)
-
-    // المستخدم يرسل مهاراته ليستقبل المهام المناسبة فقط
-    socket.on('register_skills', (skills) => {
-      // نضع المستخدم في "غرفة" باسم مهاراته
-      skills.forEach(skill => socket.join(`skill:${skill}`))
-      console.log(`👤 ${socket.id} سجّل مهاراته: ${skills.join(', ')}`)
-    })
+    console.log(`🟢 مستخدم متصل: ${socket.userId}`)
+    
+    // إضافة المستخدم لغرفة خاصة باسم الـ userId
+    socket.join(`user:${socket.userId}`)
 
     socket.on('disconnect', () => {
-      console.log(`❌ مستخدم انقطع: ${socket.id}`)
+      console.log(`🔴 مستخدم انقطع: ${socket.userId}`)
     })
   })
 
   return io
 }
 
-// دالة لإرسال مهمة جديدة لكل المهتمين بمهارة معينة
-export function emitNewTask(skill, task) {
+// دالة لإرسال مهمة لمستخدم محدد
+function sendTaskToUser(userId, task) {
   if (io) {
-    io.to(`skill:${skill}`).emit('new_task', task)
+    io.to(`user:${userId}`).emit('new_task', task)
   }
 }
 
-export { io }
+// دالة لإرسال مهمة لكل المستخدمين المتصلين
+function broadcastTask(task) {
+  if (io) {
+    io.emit('new_task', task)
+  }
+}
+
+module.exports = { initSocket, sendTaskToUser, broadcastTask }

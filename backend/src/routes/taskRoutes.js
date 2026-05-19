@@ -1,17 +1,16 @@
-// ===== مسارات المهام =====
-// GET /api/tasks        → جلب قائمة المهام مع فلاتر اختيارية
-// GET /api/tasks/:id    → جلب تفاصيل مهمة واحدة
+// ===================================================
+// taskRoutes.js - مسارات المهام
+// ===================================================
+const express        = require('express')
+const router         = express.Router()
+const taskController = require('../controllers/taskController')
+const authMiddleware = require('../middleware/authMiddleware')
 
-import { Router } from 'express'
-import { getTasks, getTaskById } from '../controllers/taskController.js'
-import { authMiddleware } from '../middleware/authMiddleware.js'
-
-const router = Router()
-
-// كل مسارات المهام محمية وتحتاج token
+// كل مسارات المهام تحتاج تسجيل دخول
 router.use(authMiddleware)
 
-router.get('/',    getTasks)      // GET /api/tasks?skill=CSS&source=telegram
-router.get('/:id', getTaskById)   // GET /api/tasks/123
+router.get('/',              taskController.getTasks)    // GET /api/tasks
+router.get('/:id',           taskController.getTaskById) // GET /api/tasks/:id
+router.post('/:id/save',     taskController.saveTask)    // POST /api/tasks/:id/save
 
-export default router
+module.exports = router

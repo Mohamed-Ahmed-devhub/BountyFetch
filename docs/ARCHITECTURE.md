@@ -1,23 +1,19 @@
 # 🏗️ معمارية المشروع
 
 ## نظرة عامة
-تطبيق Full-Stack يعتمد على:
-- **Frontend**: React SPA تتواصل مع Backend عبر REST API + Socket.io
-- **Backend**: Node.js يدير الـ Scraping + AI + Real-time
-- **Database**: PostgreSQL لحفظ المهام والمستخدمين
-- **Queue**: Redis + Bull لجدولة مهام الـ Scraping كل 5 دقائق
+Task-Bounty Agent يعتمد على بنية Client-Server كلاسيكية مع إضافة طبقة Real-time.
 
 ## تدفق البيانات
 ```
-المصادر (Telegram/Reddit/RSS/Twitter)
-         ↓
-    Scraper Services (كل 5 دقائق)
-         ↓
-    AI Filter (Claude API) - هل هي مهمة برمجية؟
-         ↓
-    PostgreSQL (حفظ المهمة)
-         ↓
-    Socket.io (إشعار المستخدمين المناسبين)
-         ↓
-    React Dashboard (عرض المهمة live)
+[مصادر البيانات]        [Backend]           [Frontend]
+Telegram API    →  Scraper → Queue →  Socket.io → Dashboard
+Reddit RSS      →  Filter (AI)      →  REST API → Task Detail
+Twitter API     →  Database         →  AI API   → Code Shield
 ```
+
+## التقنيات والأسباب
+- **React + Vite**: أسرع تطوير وأداء أفضل من CRA
+- **Tailwind**: دعم RTL مدمج وتطوير سريع
+- **Socket.io**: Real-time ثنائي الاتجاه
+- **Bull + Redis**: Queue موثوقة تعمل حتى لو السيرفر أعيد تشغيله
+- **Prisma**: Type-safe ORM يسهل التعامل مع PostgreSQL

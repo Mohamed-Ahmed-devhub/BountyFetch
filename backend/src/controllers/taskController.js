@@ -1,51 +1,53 @@
-// ===== Controller المهام =====
-// جلب المهام من قاعدة البيانات مع دعم الفلترة
+// ===================================================
+// taskController.js - جلب وإدارة المهام
+// ===================================================
+const { prisma } = require('../config/database')
 
-import prisma from '../config/database.js'
-
-// GET /api/tasks
-export async function getTasks(req, res) {
+// جلب المهام مع الفلترة
+exports.getTasks = async (req, res, next) => {
   try {
-    // الفلاتر من query parameters: ?skill=CSS&source=telegram
-    const { skill, source, limit = 20, page = 1 } = req.query
+    const { source, skills } = req.query
 
-    // بناء شرط الفلترة بشكل ديناميكي
     const where = {}
-    if (source) where.source = source
-    if (skill)  where.skills = { has: skill } // PostgreSQL Array Contains
+    if (source && source !== 'all') where.source = source
+    if (skills) {
+      const skillList = Array.isArray(skills) ? skills : [skills]
+      where.skills = { hasSome: skillList } // Prisma: هل المصفوفة تحتوي أي من المهارات
+    }
 
     const tasks = await prisma.task.findMany({
       where,
-      orderBy: { createdAt: 'desc' }, // الأحدث أولاً
-      take: parseInt(limit),
-      skip: (parseInt(page) - 1) * parseInt(limit),
+      orderBy: { postedAt: 'desc' }, // الأحدث أولاً
+      take: 50, // حد أقصى 50 مهمة
     })
 
-    const total = await prisma.task.count({ where })
-
-    res.json({
-      tasks,
-      pagination: { page: parseInt(page), limit: parseInt(limit), total }
-    })
-
+    res.json({ tasks })
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في جلب المهام', error: error.message })
+    next(error)
   }
 }
 
-// GET /api/tasks/:id
-export async function getTaskById(req, res) {
+// جلب مهمة واحدة بالـ ID
+exports.getTaskById = async (req, res, next) => {
   try {
-    const task = await prisma.task.findUnique({
-      where: { id: req.params.id }
-    })
-
-    if (!task) {
-      return res.status(404).json({ message: 'المهمة غير موجودة' })
-    }
-
-    res.json({ task })
+    const task = await prisma.task.findUnique({ where: { id: req.params.id } })
+    if (!task) return res.status(404).json({ message: 'المهمة غير موجودة' })
+    res.json(task)
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في جلب المهمة', error: error.message })
+    next(error)
+  }
+}
+
+// حفظ مهمة
+exports.saveTask = async (req, res, next) => {
+  try {
+    await prisma.savedTask.upsert({
+      where:  { userId_taskId: { userId: req.userId, taskId: req.params.id } },
+      update: {},
+      create: { userId: req.userId, taskId: req.params.id },
+    })
+    res.json({ message: 'تم حفظ المهمة' })
+  } catch (error) {
+    next(error)
   }
 }

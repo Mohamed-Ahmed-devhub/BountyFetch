@@ -1,36 +1,73 @@
 {
   "app": {
-    "name": "Task Bounty Agent",
-    "tagline": "Hunt your coding tasks with AI"
+    "name": "Task-Bounty Agent",
+    "tagline": "Hunt Tasks. Build Your Future."
   },
   "nav": {
     "radar": "Radar",
-    "codeShield": "Code Shield",
+    "code_shield": "Code Shield",
     "profile": "My Profile",
-    "logout": "Logout"
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Sign Up"
+  },
+  "landing": {
+    "hero_title": "Hunt Your Next Coding Gig",
+    "hero_subtitle": "An AI agent that monitors tech communities in real-time and instantly crafts winning proposals for you",
+    "cta_start": "Start Hunting Free",
+    "cta_learn": "How It Works?",
+    "features_title": "What Makes Us Different?",
+    "feature_radar": "Bounty Radar",
+    "feature_radar_desc": "Continuously monitors hundreds of tech communities simultaneously",
+    "feature_proposal": "Proposal Generator",
+    "feature_proposal_desc": "AI writes your professional proposal in seconds",
+    "feature_shield": "Code Shield",
+    "feature_shield_desc": "Internal AI assistant that fixes your code before delivery"
   },
   "radar": {
-    "title": "Task Radar",
-    "live": "Live",
-    "noTasks": "No tasks found yet, hang tight..."
+    "title": "Bounty Radar",
+    "live": "LIVE",
+    "tasks_found": "Tasks Detected",
+    "filter_label": "Filter by Skills",
+    "no_tasks": "Scanning... Tasks incoming",
+    "new_task": "New Task!",
+    "source": "Source",
+    "budget": "Budget",
+    "hunt_btn": "Hunt This Task",
+    "skills": "Required Skills"
   },
   "proposal": {
-    "generateArabic": "ولّد بروبوزال بالعربية",
-    "generateEnglish": "Generate in English",
+    "title": "AI Proposal Generator",
+    "generate_ar": "توليد بالعربية",
+    "generate_en": "Generate in English",
     "copy": "Copy Proposal",
-    "copied": "Copied! ✓"
+    "copied": "Copied!",
+    "generating": "AI is crafting your proposal..."
   },
-  "codeShield": {
-    "title": "AI Code Shield",
-    "placeholder": "Paste your code or question here...",
+  "code_shield": {
+    "title": "Code Shield",
+    "subtitle": "Send your code and I'll help you fix it",
+    "placeholder": "Paste your code or describe the problem...",
     "send": "Send",
-    "welcome": "Hello! I'm the AI Code Shield 🛡️ Send me your buggy code and I'll help fix it."
+    "thinking": "Analyzing..."
   },
   "auth": {
-    "login": "Login",
-    "register": "Create Account",
+    "login_title": "Welcome Back",
+    "register_title": "Join the Hunters",
     "email": "Email Address",
     "password": "Password",
-    "name": "Full Name"
+    "name": "Full Name",
+    "login_btn": "Login",
+    "register_btn": "Create Account",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try Again",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back"
   }
 }

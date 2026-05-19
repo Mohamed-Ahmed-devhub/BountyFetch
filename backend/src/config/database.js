@@ -1,12 +1,18 @@
-// ===== إعداد الاتصال بقاعدة البيانات =====
-// يستخدم Prisma ORM للتعامل مع PostgreSQL بطريقة آمنة وسهلة
+// ===================================================
+// database.js - إعداد الاتصال بقاعدة البيانات
+// ===================================================
+const { PrismaClient } = require('@prisma/client')
 
-import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
 
-// إنشاء instance واحد من Prisma (Singleton Pattern)
-// لمنع فتح اتصالات متعددة بقاعدة البيانات
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-})
+async function connectDB() {
+  try {
+    await prisma.$connect()
+    console.log('✅ متصل بقاعدة البيانات PostgreSQL')
+  } catch (error) {
+    console.error('❌ فشل الاتصال بقاعدة البيانات:', error)
+    throw error
+  }
+}
 
-export default prisma
+module.exports = { prisma, connectDB }

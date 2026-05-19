@@ -1,34 +1,35 @@
 # 📡 توثيق الـ API
 
+## Base URL
+`http://localhost:3001/api`
+
 ## المصادقة
-جميع الـ Endpoints المحمية تحتاج Header:
+أرفق الـ Token في كل طلب محمي:
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <your_token>
 ```
 
-## نقاط النهاية (Endpoints)
+## Endpoints
 
-### المصادقة
-| الطريقة | المسار | الوصف |
-|---------|--------|-------|
-| POST | `/api/auth/register` | إنشاء حساب جديد |
-| POST | `/api/auth/login` | تسجيل الدخول |
-| GET | `/api/auth/me` | بيانات المستخدم الحالي |
+### Auth
+| Method | Path | الوصف |
+|--------|------|-------|
+| POST | /auth/register | تسجيل مستخدم جديد |
+| POST | /auth/login | تسجيل الدخول |
+| GET | /auth/profile | جلب بيانات المستخدم 🔒 |
+| PUT | /auth/skills | تحديث المهارات 🔒 |
 
-### المهام
-| الطريقة | المسار | الوصف |
-|---------|--------|-------|
-| GET | `/api/tasks` | جلب المهام (مع فلاتر) |
-| GET | `/api/tasks/:id` | تفاصيل مهمة واحدة |
+### Tasks
+| Method | Path | الوصف |
+|--------|------|-------|
+| GET | /tasks | جلب المهام 🔒 |
+| GET | /tasks/:id | تفاصيل مهمة 🔒 |
+| POST | /tasks/:id/save | حفظ مهمة 🔒 |
 
-### الـ AI
-| الطريقة | المسار | الوصف |
-|---------|--------|-------|
-| POST | `/api/ai/proposal` | توليد بروبوزال |
-| POST | `/api/ai/chat` | إرسال رسالة للشات بوت |
+### AI
+| Method | Path | الوصف |
+|--------|------|-------|
+| POST | /ai/proposal | توليد بروبوزال 🔒 |
+| POST | /ai/chat | الشات بوت 🔒 |
 
-## Socket.io Events
-| الحدث | الاتجاه | الوصف |
-|-------|---------|-------|
-| `register_skills` | Client → Server | تسجيل مهارات المستخدم |
-| `new_task` | Server → Client | مهمة جديدة مصطادة |
+🔒 = يحتاج Token

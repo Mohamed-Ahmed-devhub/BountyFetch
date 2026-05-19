@@ -34,3 +34,4 @@ export async function scrapeReddit() {
 
   return allPosts
 }
+// سيتم بناء هذا الـ scraper في الأسبوع الثاني

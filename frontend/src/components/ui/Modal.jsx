@@ -29,3 +29,4 @@ function Modal({ isOpen, onClose, title, children }) {
 }
 
 export default Modal
+// Modal component - سيتم بناؤه عند الحاجة

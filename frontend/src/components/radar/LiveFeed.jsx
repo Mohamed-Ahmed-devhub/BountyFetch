@@ -1,28 +1,42 @@
-// ===== مكوّن التغذية الحية للمهام =====
-// يستقبل المهام من Socket.io ويعرضها بأنيميشن فور وصولها
-// TODO (الأسبوع 3): ربط useSocket hook لاستقبال المهام real-time
-
+// ===================================================
+// LiveFeed.jsx - قائمة المهام المباشرة في الرادار
+// ===================================================
+import React from 'react'
+import { useTranslation } from 'react-i18next'
 import TaskCard from './TaskCard.jsx'
 
-// بيانات وهمية مؤقتة لاختبار الواجهة قبل ربط الـ Backend
-const MOCK_TASKS = [
-  { id: 1, title: 'تصحيح مشكلة Responsive في صفحة رئيسية', budget: '$25', source: 'Telegram', description: 'الموقع لا يظهر بشكل صحيح على الجوال' },
-  { id: 2, title: 'إضافة Dark Mode لموقع React', budget: '$40', source: 'Reddit', description: 'أحتاج إضافة وضع مظلم لتطبيق React موجود' },
-  { id: 3, title: 'تعديل CSS لصفحة تسجيل دخول', budget: '$15', source: 'Twitter', description: 'تحسين شكل الأزرار والحقول في صفحة Login' },
-]
+function LiveFeed({ tasks = [], isLoading = false }) {
+  const { t } = useTranslation()
 
-function LiveFeed() {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {/* Skeleton Loading Placeholders */}
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="glass-card p-4 animate-pulse">
+            <div className="h-3 bg-brand-border rounded w-1/4 mb-3"></div>
+            <div className="h-4 bg-brand-border rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-brand-border rounded w-full mb-3"></div>
+            <div className="h-8 bg-brand-border rounded w-1/3"></div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <span className="text-5xl mb-4">📡</span>
+        <p className="text-gray-400">{t('radar.no_tasks')}</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      {/* مؤشر الاتصال الحي */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse" />
-        <span className="text-xs text-gray-500">مباشر — {MOCK_TASKS.length} مهام مصطادة</span>
-      </div>
-
-      {/* قائمة المهام - حالياً بيانات وهمية */}
-      {MOCK_TASKS.map(task => (
-        <TaskCard key={task.id} task={task} />
+      {tasks.map((task, index) => (
+        <TaskCard key={task.id} task={task} isNew={index === 0} />
       ))}
     </div>
   )

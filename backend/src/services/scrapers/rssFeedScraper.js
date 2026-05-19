@@ -1,37 +1,62 @@
-// ===== مُقرِّب RSS Feeds =====
-// يقرأ تحديثات منصات الفريلانس عبر RSS (قانوني 100%)
-// المصادر: Upwork, Freelancer, PeoplePerHour
-// TODO (الأسبوع 4): إضافة المزيد من المصادر وفلترة التخصصات
-
-import Parser from 'rss-parser'
+// ===================================================
+// rssFeedScraper.js - جمع المهام من RSS Feeds
+// يستخدم RSS Feeds القانونية من منصات الفريلانس
+// ===================================================
+const Parser = require('rss-parser')
+const { prisma }     = require('../../config/database')
+const { broadcastTask } = require('../../config/socket')
+const filterService  = require('../filterService')
 
 const parser = new Parser()
 
-// روابط RSS لمنصات الفريلانس - ستُحدَّث لاحقاً
+// قنوات RSS للمنصات الكبيرة
 const RSS_FEEDS = [
-  { name: 'Upwork - Web Design', url: 'https://www.upwork.com/ab/feed/jobs/rss?q=css+responsive&sort=recency' },
-  // TODO: إضافة المزيد من الروابط
+  {
+    url:    'https://www.reddit.com/r/forhire/new/.rss',
+    source: 'reddit',
+  },
+  {
+    url:    'https://www.reddit.com/r/webdev/new/.rss',
+    source: 'reddit',
+  },
 ]
 
-export async function scrapeRSSFeeds() {
-  const allItems = []
+async function scrapeRSSFeeds() {
+  console.log('🔄 جاري فحص RSS Feeds...')
 
   for (const feed of RSS_FEEDS) {
     try {
       const parsed = await parser.parseURL(feed.url)
+      
+      for (const item of parsed.items.slice(0, 10)) { // آخر 10 مقالات فقط
+        const text = `${item.title} ${item.contentSnippet || ''}`
+        
+        const isTask = await filterService.isTaskPost(text)
+        if (!isTask) continue
 
-      const items = parsed.items.map(item => ({
-        source:    feed.name,
-        rawText:   `${item.title}\n${item.contentSnippet || ''}`,
-        url:       item.link,
-        postedAt:  new Date(item.pubDate)
-      }))
+        const taskData = await filterService.extractTaskData(text, feed.source)
 
-      allItems.push(...items)
+        await prisma.task.upsert({
+          where:  { externalId: item.guid || item.link },
+          update: {},
+          create: {
+            externalId:  item.guid || item.link,
+            title:       item.title,
+            description: item.contentSnippet || item.title,
+            skills:      taskData.skills,
+            budget:      taskData.budget,
+            source:      feed.source,
+            url:         item.link,
+            postedAt:    new Date(item.pubDate || Date.now()),
+          },
+        })
+      }
+
+      console.log(`✅ RSS ${feed.source}: تمت المعالجة`)
     } catch (error) {
-      console.error(`خطأ في جلب ${feed.name}:`, error.message)
+      console.error(`❌ خطأ في RSS ${feed.url}:`, error.message)
     }
   }
-
-  return allItems
 }
+
+module.exports = { scrapeRSSFeeds }

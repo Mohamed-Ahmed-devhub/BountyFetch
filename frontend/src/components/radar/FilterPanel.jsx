@@ -1,13 +1,31 @@
-// ===== لوحة الفلاتر =====
-// تتيح للمستخدم تصفية المهام حسب: المهارة، المصدر، الميزانية
-// TODO (الأسبوع 3): ربط حالة الفلاتر بـ Dashboard وتطبيقها على المهام
+// ===================================================
+// FilterPanel.jsx - لوحة الفلاتر في أعلى الرادار
+// ===================================================
+import React from 'react'
+import { useTranslation } from 'react-i18next'
 
-function FilterPanel() {
+const SOURCES = ['all', 'telegram', 'reddit', 'twitter', 'rss']
+
+function FilterPanel({ activeSource, onSourceChange }) {
+  const { t } = useTranslation()
+
   return (
-    <div className="bg-dark-card border border-dark-border rounded-xl p-4">
-      <h3 className="text-sm font-semibold text-gray-300 mb-4">🔍 فلاتر البحث</h3>
-      {/* TODO: إضافة عناصر التحكم بالفلاتر */}
-      <p className="text-gray-600 text-xs">قيد البناء في الأسبوع الثالث...</p>
+    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      {SOURCES.map((source) => (
+        <button
+          key={source}
+          onClick={() => onSourceChange(source)}
+          className={`
+            text-sm px-4 py-1.5 rounded-full border whitespace-nowrap transition-all
+            ${activeSource === source
+              ? 'bg-brand-cyan text-brand-dark border-brand-cyan font-bold'
+              : 'border-brand-border text-gray-400 hover:border-brand-cyan hover:text-brand-cyan'
+            }
+          `}
+        >
+          {source === 'all' ? 'الكل' : source}
+        </button>
+      ))}
     </div>
   )
 }

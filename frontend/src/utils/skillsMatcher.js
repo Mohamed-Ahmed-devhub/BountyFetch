@@ -1,26 +1,21 @@
-// ===== دالة مطابقة المهارات =====
-// تقارن مهارات المستخدم بمتطلبات المهمة وتحسب نسبة التطابق
-// تُستخدم في الـ Frontend لعرض مؤشر التوافق في بطاقة المهمة
+// ===================================================
+// skillsMatcher.js - مطابقة مهارات المستخدم مع المهمة
+// تحسب نسبة التطابق بين مهارات المستخدم ومتطلبات المهمة
+// ===================================================
 
-// userSkills: ['HTML', 'CSS', 'React'] | taskSkills: ['CSS', 'Responsive']
-export function calculateMatchScore(userSkills, taskSkills) {
-  if (!taskSkills?.length) return 0
-  
-  // حساب عدد المهارات المتطابقة
-  const matchedSkills = taskSkills.filter(skill =>
-    userSkills.some(userSkill =>
-      userSkill.toLowerCase() === skill.toLowerCase()
-    )
-  )
-  
-  // نسبة التطابق من 0 إلى 100
-  return Math.round((matchedSkills.length / taskSkills.length) * 100)
+export function calculateMatchScore(userSkills = [], taskSkills = []) {
+  if (taskSkills.length === 0) return 100 // إذا لا توجد مهارات محددة = تناسب الجميع
+
+  const matchCount = taskSkills.filter(skill =>
+    userSkills.map(s => s.toLowerCase()).includes(skill.toLowerCase())
+  ).length
+
+  return Math.round((matchCount / taskSkills.length) * 100)
 }
 
-// تحديد لون مؤشر التطابق بناءً على النسبة
-export function getMatchColor(score) {
-  if (score >= 80) return 'green'   // تطابق ممتاز
-  if (score >= 50) return 'cyan'    // تطابق جيد
-  if (score >= 30) return 'purple'  // تطابق متوسط
-  return 'gray'                      // تطابق ضعيف
+// تصنيف درجة التطابق
+export function getMatchLabel(score, lang = 'ar') {
+  if (score >= 80) return lang === 'ar' ? '🟢 مطابقة ممتازة' : '🟢 Excellent Match'
+  if (score >= 50) return lang === 'ar' ? '🟡 مطابقة جيدة'   : '🟡 Good Match'
+  return lang === 'ar' ? '🔴 مطابقة منخفضة' : '🔴 Low Match'
 }

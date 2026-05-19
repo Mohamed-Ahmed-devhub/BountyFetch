@@ -1,18 +1,22 @@
-// ===== خدمة المهام =====
-// كل العمليات المتعلقة بجلب وفلترة المهام من الـ Backend
-
+// ===================================================
+// taskService.js - كل الدوال المتعلقة بالمهام
+// التواصل مع الـ Backend لجلب وإدارة المهام
+// ===================================================
 import api from './api.js'
 
-// جلب المهام المصطادة مع الفلاتر
-export const getTasks = async (filters = {}) => {
-  const { data } = await api.get('/tasks', { params: filters })
-  return data
-}
+export const taskService = {
+  // جلب قائمة المهام المفلترة حسب مهارات المستخدم
+  getTasks: (filters = {}) => {
+    return api.get('/tasks', { params: filters })
+  },
 
-// جلب تفاصيل مهمة واحدة بمعرّفها
-export const getTaskById = async (taskId) => {
-  const { data } = await api.get(`/tasks/${taskId}`)
-  return data
-}
+  // جلب تفاصيل مهمة محددة
+  getTaskById: (taskId) => {
+    return api.get(`/tasks/${taskId}`)
+  },
 
-// TODO: إضافة حفظ المهمة في المفضلة، وتحديث الحالة
+  // حفظ مهمة في قائمة المهام المحفوظة
+  saveTask: (taskId) => {
+    return api.post(`/tasks/${taskId}/save`)
+  },
+}

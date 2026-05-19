@@ -1,29 +1,21 @@
-# 🎯 صيّاد التاسكات الذكي — Task Bounty Agent
+# 🎯 صيّاد التاسكات الذكي — The Task-Bounty Agent
 
-> مساعد ذكي يصطاد المهام البرمجية الصغيرة من الإنترنت في الوقت الفعلي، ويساعد المطورين المبتدئين على إيجاد عمل وبناء خبرتهم.
+> مساعد ذكي يصطاد المهام البرمجية من الإنترنت في الوقت الفعلي ويساعدك على الفوز بها.
 
 ## 🚀 التقنيات المستخدمة
+- **Frontend:** React.js + Vite + Tailwind CSS + i18next
+- **Backend:** Node.js + Express + Socket.io + PostgreSQL + Redis
+- **AI:** Claude API + LangChain.js
 
-| الجانب | التقنية |
-|--------|---------|
-| Frontend | React.js + Vite + Tailwind CSS |
-| Backend | Node.js + Express + Socket.io |
-| Database | PostgreSQL + Prisma ORM |
-| Queue | Bull + Redis |
-| AI | Claude API (Anthropic) |
-| i18n | i18next (Arabic/English) |
-
-## 📁 هيكل المشروع
-
+## 📁 هيكل المجلدات
 ```
 task-bounty-agent/
-├── frontend/    ← واجهة المستخدم
-├── backend/     ← السيرفر والـ API
-└── docs/        ← التوثيق
+├── frontend/     ← واجهة المستخدم (React)
+├── backend/      ← السيرفر والـ API (Node.js)
+└── docs/         ← التوثيق
 ```
 
-## ⚙️ طريقة التشغيل
-
+## ⚡ تشغيل المشروع
 ```bash
 # Frontend
 cd frontend && npm install && npm run dev
@@ -33,5 +25,4 @@ cd backend && npm install && npm run dev
 ```
 
 ## 👨‍💻 المطور
-
-بُني بشغف كـ Capstone Project لـ Portfolio احترافي.
+Built with ❤️ as a Capstone Portfolio Project

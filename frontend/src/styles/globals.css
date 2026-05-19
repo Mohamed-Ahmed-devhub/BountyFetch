@@ -1,45 +1,100 @@
-/* ===== ملف الأنماط العامة للمشروع ===== */
+/* ===================================================
+   globals.css - الأنماط العامة للمشروع
+   يحتوي على Tailwind، متغيرات CSS، وأنماط RTL/LTR
+   =================================================== */
+
+/* تهيئة Tailwind CSS */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* متغيرات الألوان العامة */
+/* --- متغيرات CSS العامة للمشروع --- */
 :root {
-  --color-neon-cyan:   #00D4FF;
-  --color-neon-purple: #7B2FFF;
-  --color-neon-green:  #00FF88;
-  --color-dark-bg:     #0A0A0F;
-  --color-dark-card:   #12121A;
+  --color-cyan:    #00D4FF;
+  --color-purple:  #7B2FFF;
+  --color-dark:    #0A0A0F;
+  --color-surface: #12121A;
+  --color-border:  #1E1E2E;
+  --color-green:   #00FF88;
+  --color-red:     #FF3366;
+  
+  /* حجم الخط الأساسي */
+  --font-size-base: 16px;
 }
 
-/* إعدادات اللغة العربية (RTL) */
-[dir="rtl"] {
-  font-family: 'Cairo', sans-serif;
-  letter-spacing: 0;
+/* --- إعدادات القاعدة --- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-/* إعدادات اللغة الإنجليزية (LTR) */
-[dir="ltr"] {
-  font-family: 'Inter', sans-serif;
+html {
+  font-size: var(--font-size-base);
+  /* تحديد الاتجاه الافتراضي - سيتغير بـ JavaScript */
+  direction: rtl;
 }
 
-/* تأثير التوهج النيون للعناصر الأساسية */
-.neon-glow-cyan {
-  box-shadow: 0 0 10px #00D4FF40, 0 0 20px #00D4FF20;
+body {
+  background-color: var(--color-dark);
+  color: #E8E8F0;
+  /* الخط العربي افتراضياً */
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  overflow-x: hidden;
+  /* تأثير grain خفيف على الخلفية */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
 }
 
-.neon-glow-purple {
-  box-shadow: 0 0 10px #7B2FFF40, 0 0 20px #7B2FFF20;
+/* --- الخط الإنجليزي عند تغيير اللغة --- */
+html[lang="en"] body {
+  font-family: 'Space Grotesk', sans-serif;
+  direction: ltr;
 }
 
-/* شريط التمرير المخصص */
-::-webkit-scrollbar {
-  width: 6px;
+/* --- تأثيرات النيون للعناصر المهمة --- */
+.neon-border {
+  border: 1px solid var(--color-cyan);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.3),
+              inset 0 0 10px rgba(0, 212, 255, 0.05);
 }
-::-webkit-scrollbar-track {
-  background: #12121A;
+
+.neon-text {
+  color: var(--color-cyan);
+  text-shadow: 0 0 10px var(--color-cyan), 0 0 20px rgba(0, 212, 255, 0.5);
 }
-::-webkit-scrollbar-thumb {
-  background: #7B2FFF;
-  border-radius: 3px;
+
+/* --- تأثير النبضة للمؤشر الحي (Live Indicator) --- */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-green);
+  box-shadow: 0 0 8px var(--color-green);
+  animation: livePulse 1.5s infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* --- شريط التمرير المخصص --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-cyan); }
+
+/* --- كلاس مساعدة للصفحة الكاملة --- */
+.page-container {
+  min-height: 100vh;
+  background-color: var(--color-dark);
+}
+
+/* --- تأثير الزجاج (Glassmorphism) للكروت --- */
+.glass-card {
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
 }

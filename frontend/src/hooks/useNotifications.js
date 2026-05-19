@@ -1,25 +1,31 @@
-// ===== Custom Hook لإدارة الإشعارات الفورية =====
-// يطلب إذن المستخدم ويرسل Push Notifications عند ظهور مهام جديدة
-// TODO (الأسبوع 7): ربط بـ Service Worker لإشعارات حتى عند إغلاق التطبيق
+// ===================================================
+// useNotifications.js - إدارة الإشعارات الفورية
+// يطلب إذن الإشعارات ويرسلها عند ظهور مهمة مناسبة
+// ===================================================
+import { useEffect } from 'react'
 
 export function useNotifications() {
-  // طلب إذن الإشعارات من المتصفح
+  // طلب إذن الإشعارات من المتصفح عند أول استخدام
   const requestPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission()
-      return permission === 'granted'
+    if (!('Notification' in window)) {
+      console.log('المتصفح لا يدعم الإشعارات')
+      return false
     }
-    return false
+    
+    const permission = await Notification.requestPermission()
+    return permission === 'granted'
   }
 
-  // إرسال إشعار فوري
-  const sendNotification = (title, body) => {
-    if (Notification.permission === 'granted') {
-      new Notification(title, {
-        body,
-        icon: '/favicon.svg', // TODO: إضافة أيقونة المشروع
-      })
-    }
+  // إرسال إشعار للمستخدم عند ظهور مهمة جديدة
+  const sendNotification = (task) => {
+    if (Notification.permission !== 'granted') return
+    
+    new Notification('🎯 مهمة جديدة تناسبك!', {
+      body: task.title,
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      tag: `task-${task.id}`, // منع تكرار نفس الإشعار
+    })
   }
 
   return { requestPermission, sendNotification }

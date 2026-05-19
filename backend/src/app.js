@@ -1,55 +1,68 @@
-// ===== نقطة الدخول الرئيسية للـ Backend =====
-// يقوم بتهيئة: Express + Socket.io + الـ Routes + الـ Middleware
+// ===================================================
+// app.js - نقطة الدخول الرئيسية للـ Backend
+// يبدأ السيرفر، يربط الـ Socket.io، ويسجل الـ Routes
+// ===================================================
+require('dotenv').config()
 
-import express from 'express'
-import { createServer } from 'http'
-import cors from 'cors'
-import dotenv from 'dotenv'
+const express  = require('express')
+const http     = require('http')
+const cors     = require('cors')
 
-// تحميل المتغيرات البيئية من ملف .env
-dotenv.config()
+const { initSocket }  = require('./config/socket')
+const { connectDB }   = require('./config/database')
+const { initQueues }  = require('./jobs/scrapingJob')
+const errorHandler    = require('./middleware/errorHandler')
 
 // استيراد الـ Routes
-import authRoutes from './routes/authRoutes.js'
-import taskRoutes from './routes/taskRoutes.js'
-import aiRoutes   from './routes/aiRoutes.js'
+const authRoutes = require('./routes/authRoutes')
+const taskRoutes = require('./routes/taskRoutes')
+const aiRoutes   = require('./routes/aiRoutes')
 
-// استيراد إعداد Socket.io
-import { initSocket } from './config/socket.js'
+const app    = express()
+const server = http.createServer(app)
 
-// إنشاء تطبيق Express
-const app = express()
-
-// === Middleware العام ===
-
-// السماح للـ Frontend بالتواصل مع الـ Backend (CORS)
+// --- Middleware ---
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
+  origin:      process.env.FRONTEND_URL,
+  credentials: true,
 }))
-
-// قراءة JSON في جسم الطلبات
 app.use(express.json())
 
-// === الـ Routes ===
-app.use('/api/auth',  authRoutes)  // تسجيل الدخول والتسجيل
-app.use('/api/tasks', taskRoutes)  // جلب وإدارة المهام
-app.use('/api/ai',    aiRoutes)    // توليد البروبوزال والشات بوت
+// --- Routes ---
+app.use('/api/auth',  authRoutes)
+app.use('/api/tasks', taskRoutes)
+app.use('/api/ai',    aiRoutes)
 
-// نقطة اختبار بسيطة للتأكد من أن السيرفر يعمل
-app.get('/health', (req, res) => {
-  res.json({ status: '✅ السيرفر يعمل بنجاح', timestamp: new Date().toISOString() })
+// نقطة للتحقق أن السيرفر يعمل
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: '🎯 Task Bounty Agent يعمل!' })
 })
 
-// === إنشاء HTTP Server وربطه بـ Socket.io ===
-const httpServer = createServer(app)
-initSocket(httpServer) // تهيئة الـ real-time
+// --- معالج الأخطاء (يجب أن يكون آخر middleware) ---
+app.use(errorHandler)
 
-// === تشغيل السيرفر ===
-const PORT = process.env.PORT || 5000
-httpServer.listen(PORT, () => {
-  console.log(`🚀 السيرفر يعمل على المنفذ ${PORT}`)
-  console.log(`🔗 http://localhost:${PORT}`)
-})
+// --- تشغيل السيرفر ---
+const PORT = process.env.PORT || 3001
 
-export default app
+async function startServer() {
+  try {
+    // الاتصال بقاعدة البيانات
+    await connectDB()
+    
+    // تهيئة الـ Socket.io
+    initSocket(server)
+    
+    // تشغيل مهام الـ Scraping في الخلفية
+    initQueues()
+    
+    server.listen(PORT, () => {
+      console.log(`🚀 السيرفر يعمل على http://localhost:${PORT}`)
+      console.log(`📡 Socket.io جاهز للاتصالات`)
+    })
+  } catch (error) {
+    console.error('❌ فشل تشغيل السيرفر:', error)
+    process.exit(1)
+  }
+}
+
+startServer()

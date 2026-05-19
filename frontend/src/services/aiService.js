@@ -1,20 +1,17 @@
-// ===== خدمة الـ AI =====
-// التواصل مع الـ Backend لاستدعاء Claude API
-// لتوليد البروبوزالات وردود الشات بوت
-
+// ===================================================
+// aiService.js - التواصل مع الـ AI في الـ Backend
+// يرسل البيانات للسيرفر الذي يتواصل مع Claude API
+// ===================================================
 import api from './api.js'
 
-// توليد بروبوزال لمهمة معينة
-export const generateProposal = async (taskId, language = 'ar') => {
-  const { data } = await api.post('/ai/proposal', { taskId, language })
-  return data.proposal
-}
+export const aiService = {
+  // توليد بروبوزال احترافي لمهمة معينة
+  generateProposal: (taskId, language = 'ar') => {
+    return api.post('/ai/proposal', { taskId, language })
+  },
 
-// إرسال رسالة للشات بوت والحصول على رد
-export const sendChatMessage = async (messages, userCode = '') => {
-  const { data } = await api.post('/ai/chat', { messages, userCode })
-  return data.reply
+  // إرسال رسالة للشات بوت (Code Shield)
+  sendChatMessage: (message, conversationHistory = []) => {
+    return api.post('/ai/chat', { message, history: conversationHistory })
+  },
 }
-
-// TODO (الأسبوع 6): تحويل هذه الدوال لـ streaming باستخدام fetch مباشرة
-// لأن axios لا يدعم streaming بشكل مثالي

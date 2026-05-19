@@ -1,16 +1,14 @@
-// ===== مسارات الـ AI =====
-// POST /api/ai/proposal → توليد بروبوزال لمهمة
-// POST /api/ai/chat     → إرسال رسالة للشات بوت
+// ===================================================
+// aiRoutes.js - مسارات الـ AI
+// ===================================================
+const express      = require('express')
+const router       = express.Router()
+const aiController = require('../controllers/aiController')
+const authMiddleware = require('../middleware/authMiddleware')
 
-import { Router } from 'express'
-import { generateProposal, chatWithAI } from '../controllers/aiController.js'
-import { authMiddleware } from '../middleware/authMiddleware.js'
+router.use(authMiddleware)
 
-const router = Router()
+router.post('/proposal', aiController.generateProposal) // POST /api/ai/proposal
+router.post('/chat',     aiController.chat)             // POST /api/ai/chat
 
-router.use(authMiddleware) // كل مسارات الـ AI محمية
-
-router.post('/proposal', generateProposal) // POST /api/ai/proposal
-router.post('/chat',     chatWithAI)       // POST /api/ai/chat
-
-export default router
+module.exports = router

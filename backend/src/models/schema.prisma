@@ -1,6 +1,6 @@
-// ===== مخطط قاعدة البيانات (Prisma Schema) =====
-// يعرّف جداول البيانات وعلاقاتها
-// بعد أي تعديل، شغّل: npm run db:migrate
+// ===================================================
+// schema.prisma - تصميم قاعدة البيانات
+// ===================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -13,27 +13,39 @@ datasource db {
 
 // جدول المستخدمين
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  skills    String[] // مصفوفة المهارات: ["HTML", "CSS", "React"]
-  language  String   @default("ar") // اللغة المفضلة
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String      @id @default(cuid())
+  name       String
+  email      String      @unique
+  password   String
+  skills     String[]    // مصفوفة المهارات
+  createdAt  DateTime    @default(now())
+  
+  savedTasks SavedTask[]
 }
 
 // جدول المهام المصطادة
 model Task {
-  id              String   @id @default(cuid())
-  title           String
-  description     String
-  skills          String[] // المهارات المطلوبة للمهمة
-  estimatedBudget String   @default("غير محدد")
-  source          String   // "reddit" | "telegram" | "twitter" | "rss"
-  sourceUrl       String   @unique // لمنع تكرار نفس المهمة
-  urgency         String   @default("medium") // "low" | "medium" | "high"
-  createdAt       DateTime @default(now())
+  id          String      @id @default(cuid())
+  externalId  String      @unique // الـ ID من المصدر الأصلي
+  title       String
+  description String      @db.Text
+  skills      String[]
+  budget      String?
+  source      String      // telegram | reddit | twitter | rss
+  url         String?
+  postedAt    DateTime    @default(now())
+  
+  savedBy     SavedTask[]
+}
 
-  @@index([source, createdAt]) // فهرس لتسريع الاستعلامات
+// جدول المهام المحفوظة (علاقة Many-to-Many)
+model SavedTask {
+  userId  String
+  taskId  String
+  savedAt DateTime @default(now())
+  
+  user    User @relation(fields: [userId], references: [id])
+  task    Task @relation(fields: [taskId], references: [id])
+  
+  @@id([userId, taskId]) // مفتاح مركب - منع الحفظ المكرر
 }

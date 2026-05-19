@@ -1,20 +1,19 @@
-// ===== Middleware معالجة الأخطاء العامة =====
-// يمسك أي خطأ غير متوقع ويرسل رسالة منسقة للـ Frontend
-// يُضاف في نهاية كل الـ Middleware في app.js
+// ===================================================
+// errorHandler.js - معالج الأخطاء المركزي
+// يمسك أي خطأ غير متوقع ويرد برسالة منظمة
+// ===================================================
+function errorHandler(err, req, res, next) {
+  console.error('❌ خطأ غير متوقع:', err.message)
 
-export function errorHandler(err, req, res, next) {
-  // طباعة الخطأ في السيرفر للتشخيص
-  console.error(`❌ خطأ: ${err.message}`)
-
-  // تحديد كود الخطأ المناسب
   const statusCode = err.statusCode || 500
-  const message = process.env.NODE_ENV === 'production'
-    ? 'حدث خطأ في السيرفر'  // في الإنتاج: رسالة عامة آمنة
-    : err.message             // في التطوير: الخطأ كاملاً
+  const message    = err.message    || 'حدث خطأ داخلي في السيرفر'
 
   res.status(statusCode).json({
     success: false,
     message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    // في بيئة الإنتاج، لا نُظهر تفاصيل الخطأ للمستخدم
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   })
 }
+
+module.exports = errorHandler

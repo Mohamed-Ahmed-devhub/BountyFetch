@@ -1,16 +1,14 @@
-// ===== مسارات المصادقة =====
-// POST /api/auth/register → إنشاء حساب جديد
-// POST /api/auth/login    → تسجيل الدخول والحصول على token
-// GET  /api/auth/me       → جلب بيانات المستخدم الحالي
+// ===================================================
+// authRoutes.js - مسارات التسجيل والدخول
+// ===================================================
+const express        = require('express')
+const router         = express.Router()
+const authController = require('../controllers/authController')
+const authMiddleware = require('../middleware/authMiddleware')
 
-import { Router } from 'express'
-import { register, login, getMe } from '../controllers/authController.js'
-import { authMiddleware } from '../middleware/authMiddleware.js'
+router.post('/register', authController.register)  // POST /api/auth/register
+router.post('/login',    authController.login)     // POST /api/auth/login
+router.get('/profile',   authMiddleware, authController.getProfile) // يحتاج token
+router.put('/skills',    authMiddleware, authController.updateSkills)
 
-const router = Router()
-
-router.post('/register', register)         // عام - لا يحتاج token
-router.post('/login',    login)            // عام - لا يحتاج token
-router.get('/me',        authMiddleware, getMe) // محمي - يحتاج token
-
-export default router
+module.exports = router

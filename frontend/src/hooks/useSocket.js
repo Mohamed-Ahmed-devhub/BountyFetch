@@ -1,24 +1,49 @@
-// ===== Custom Hook للاتصال بـ Socket.io =====
-// يدير الاتصال بالسيرفر real-time
-// يُستخدم في Dashboard لاستقبال المهام الجديدة فوراً
-// TODO (الأسبوع 3): تفعيل الاتصال الفعلي بعد بناء الـ Backend
+// ===================================================
+// useSocket.js - Hook للاتصال بالـ WebSocket
+// يدير الاتصال الحي مع السيرفر لاستقبال المهام الجديدة
+// ===================================================
+import { useEffect, useRef, useState } from 'react'
+import { io } from 'socket.io-client'
 
-import { useEffect, useRef } from 'react'
-// import { io } from 'socket.io-client' // سيتم تفعيله لاحقاً
-
-export function useSocket(onNewTask) {
+export function useSocket() {
   const socketRef = useRef(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [newTasks, setNewTasks]       = useState([])
 
   useEffect(() => {
-    // TODO: إلغاء التعليق عند جاهزية الـ Backend
-    // socketRef.current = io(import.meta.env.VITE_SOCKET_URL)
-    // socketRef.current.on('new_task', onNewTask)
+    // إنشاء الاتصال مع السيرفر
+    socketRef.current = io(import.meta.env.VITE_SOCKET_URL, {
+      auth: {
+        token: localStorage.getItem('auth_token')
+      }
+    })
 
-    // تنظيف الاتصال عند مغادرة الصفحة
+    // عند نجاح الاتصال
+    socketRef.current.on('connect', () => {
+      console.log('🟢 متصل بالرادار')
+      setIsConnected(true)
+    })
+
+    // عند استقبال مهمة جديدة من السيرفر
+    socketRef.current.on('new_task', (task) => {
+      console.log('🎯 مهمة جديدة:', task.title)
+      setNewTasks(prev => [task, ...prev]) // إضافة المهمة في أول القائمة
+    })
+
+    // عند انقطاع الاتصال
+    socketRef.current.on('disconnect', () => {
+      console.log('🔴 انقطع الاتصال بالرادار')
+      setIsConnected(false)
+    })
+
+    // تنظيف الاتصال عند إغلاق المكون
     return () => {
-      // socketRef.current?.disconnect()
+      socketRef.current?.disconnect()
     }
   }, [])
 
-  return socketRef.current
+  // دالة لمسح المهام المستلمة (بعد عرضها)
+  const clearNewTasks = () => setNewTasks([])
+
+  return { isConnected, newTasks, clearNewTasks }
 }

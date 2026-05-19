@@ -1,14 +1,17 @@
-// ===== درع المساعدة البرمجي - الشات بوت الداخلي =====
-// واجهة chat بستايل terminal يرفع فيها المستخدم كوده
-// والـ AI يساعده في debugging وتنسيق CSS
-// TODO (الأسبوع 6): بناء واجهة الـ Chat مع streaming
+// ===================================================
+// CodeShield.jsx - صفحة درع الكود (الشات بوت)
+// ===================================================
+import React from 'react'
+import Navbar from '../components/layout/Navbar.jsx'
+import ChatWindow from '../components/chatbot/ChatWindow.jsx'
 
 function CodeShield() {
   return (
-    <div className="min-h-screen bg-dark-bg p-6">
-      <h1 className="text-2xl font-bold text-neon-cyan">
-        🛡️ درع الكود الذكي — قيد البناء
-      </h1>
+    <div className="page-container flex flex-col">
+      <Navbar />
+      <div className="flex-1 max-w-3xl w-full mx-auto px-4 py-6 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
+        <ChatWindow />
+      </div>
     </div>
   )
 }

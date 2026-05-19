@@ -1,83 +1,79 @@
-// ===== Controller المصادقة =====
-// يحتوي على منطق تسجيل الدخول، إنشاء الحساب، وجلب المستخدم الحالي
+// ===================================================
+// authController.js - منطق التسجيل والدخول
+// ===================================================
+const bcrypt       = require('bcryptjs')
+const jwt          = require('jsonwebtoken')
+const { prisma }   = require('../config/database')
 
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import prisma from '../config/database.js'
-
-// دالة مساعدة: توليد JWT token
-function generateToken(userId) {
-  return jwt.sign(
-    { userId }, // البيانات المخزنة في الـ token
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-  )
+// دالة توليد الـ JWT Token
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  })
 }
 
-// POST /api/auth/register
-export async function register(req, res) {
+// تسجيل مستخدم جديد
+exports.register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body
 
-    // التحقق من عدم وجود حساب بنفس البريد
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ message: 'هذا البريد مسجّل مسبقاً' })
-    }
+    // التحقق أن الإيميل غير موجود مسبقاً
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) return res.status(400).json({ message: 'البريد الإلكتروني مستخدم بالفعل' })
 
-    // تشفير كلمة المرور قبل الحفظ
+    // تشفير كلمة المرور
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // حفظ المستخدم الجديد
+    // إنشاء المستخدم في قاعدة البيانات
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword },
-      select: { id: true, name: true, email: true } // لا نرجع كلمة المرور!
+      data: { name, email, password: hashedPassword, skills: [] },
     })
 
     const token = generateToken(user.id)
-    res.status(201).json({ user, token })
-
+    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email }, token })
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في إنشاء الحساب', error: error.message })
+    next(error)
   }
 }
 
-// POST /api/auth/login
-export async function login(req, res) {
+// تسجيل الدخول
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body
 
-    // البحث عن المستخدم
     const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) {
-      return res.status(401).json({ message: 'البريد أو كلمة المرور غير صحيحة' })
-    }
+    if (!user) return res.status(401).json({ message: 'بيانات غير صحيحة' })
 
-    // مقارنة كلمة المرور مع المشفّرة
     const isMatch = await bcrypt.compare(password, user.password)
-    if (!isMatch) {
-      return res.status(401).json({ message: 'البريد أو كلمة المرور غير صحيحة' })
-    }
+    if (!isMatch) return res.status(401).json({ message: 'بيانات غير صحيحة' })
 
     const token = generateToken(user.id)
-    const { password: _, ...userWithoutPassword } = user // حذف كلمة المرور من الرد
-    res.json({ user: userWithoutPassword, token })
-
+    res.json({ user: { id: user.id, name: user.name, email: user.email, skills: user.skills }, token })
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في تسجيل الدخول', error: error.message })
+    next(error)
   }
 }
 
-// GET /api/auth/me
-export async function getMe(req, res) {
+// جلب الملف الشخصي
+exports.getProfile = async (req, res, next) => {
   try {
-    // req.user.userId يأتي من authMiddleware
     const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: { id: true, name: true, email: true, skills: true }
+      where: { id: req.userId },
+      select: { id: true, name: true, email: true, skills: true, createdAt: true },
     })
-    res.json({ user })
+    res.json(user)
   } catch (error) {
-    res.status(500).json({ message: 'خطأ في جلب بيانات المستخدم' })
+    next(error)
+  }
+}
+
+// تحديث المهارات
+exports.updateSkills = async (req, res, next) => {
+  try {
+    const { skills } = req.body
+    await prisma.user.update({ where: { id: req.userId }, data: { skills } })
+    res.json({ message: 'تم تحديث المهارات بنجاح', skills })
+  } catch (error) {
+    next(error)
   }
 }
