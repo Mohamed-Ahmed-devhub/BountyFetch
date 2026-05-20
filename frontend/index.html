@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ══ SEO ══ -->
+    <title>BountyFetch — الرادار الذكي للفرص البرمجية</title>
+    <meta name="description" content="BountyFetch: منصة ذكاء اصطناعي تصطاد وتصفّي المهام البرمجية والمشاريع الحرة من عشرات المصادر في الوقت الفعلي، وتولّد لك عرض عمل احترافي فوراً." />
+    <meta name="keywords"    content="BountyFetch, freelance, مهام برمجية, AI, رادار, فريلانس, مشاريع" />
+    <meta name="author"      content="BountyFetch" />
+    <meta name="theme-color" content="#020617" />
+
+    <!-- ══ Open Graph ══ -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:title"       content="BountyFetch — الرادار الذكي للفرص البرمجية" />
+    <meta property="og:description" content="اصطد المهام البرمجية في الوقت الفعلي واحصل على عرض عمل احترافي في ثوانٍ." />
+    <meta property="og:site_name"   content="BountyFetch" />
+
+    <!-- ══ Twitter Card ══ -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="BountyFetch" />
+    <meta name="twitter:description" content="الرادار الذكي الأسرع لاقتناص الفرص البرمجية في الوقت الفعلي." />
+
+    <!-- ══ Favicon ══ -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- ══ Google Fonts ══
+         Syne        → عناوين بجودة Premium (Display font)
+         DM Sans     → نص أنيق للإنجليزية
+         Cairo       → عناوين عربية قوية
+         Tajawal     → نص عربي نظيف
+         JetBrains Mono → الكود في Code Shield
+    ══ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Cairo:wght@300;400;500;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- ══ منع وميض التصميم (FOUC) ══ -->
+    <style>
+      html { background: #020617; }
+      body { opacity: 0; transition: opacity 0.15s ease; }
+      body.loaded { opacity: 1; }
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.classList.add('loaded');
+      });
+    </script>
+  </head>
+
+  <body>
+    <!-- نقطة تركيب React — كل التطبيق يُبنى هنا -->
+    <div id="root"></div>
+
+    <!-- نقطة الدخول لـ Vite -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

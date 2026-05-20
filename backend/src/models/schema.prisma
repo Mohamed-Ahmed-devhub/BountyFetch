@@ -1,0 +1,93 @@
+// ===================================================
+// schema.prisma — تصميم قاعدة البيانات الكاملة
+// المسار: backend/src/models/schema.prisma
+//
+// لتطبيق التغييرات:
+//   npx prisma generate
+//   npx prisma migrate dev --name init
+// ===================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ══════════════════════════════════════
+// جدول المستخدمين
+// ══════════════════════════════════════
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  // مصفوفة المهارات المختارة من صفحة ProfileSetup
+  skills    String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // العلاقات
+  savedTasks  SavedTask[]
+  proposals   Proposal[]
+
+  @@map("users")
+}
+
+// ══════════════════════════════════════
+// جدول المهام المصطادة
+// ══════════════════════════════════════
+model Task {
+  id          String   @id @default(cuid())
+  // المعرف الفريد من المصدر الأصلي (يمنع التكرار)
+  externalId  String   @unique
+  title       String
+  description String   @db.Text
+  skills      String[] // المهارات المطلوبة
+  budget      String?  // الميزانية (nullable — قد لا تُذكر)
+  source      String   // 'telegram' | 'reddit' | 'twitter' | 'rss'
+  url         String?  // رابط المنشور الأصلي
+  postedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  // العلاقات
+  savedBy   SavedTask[]
+  proposals Proposal[]
+
+  @@map("tasks")
+}
+
+// ══════════════════════════════════════
+// جدول المهام المحفوظة (Many-to-Many)
+// ══════════════════════════════════════
+model SavedTask {
+  userId  String
+  taskId  String
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  // مفتاح مركب — يمنع حفظ نفس المهمة مرتين
+  @@id([userId, taskId])
+  @@map("saved_tasks")
+}
+
+// ══════════════════════════════════════
+// جدول البروبوزالات المولّدة
+// ══════════════════════════════════════
+model Proposal {
+  id        String   @id @default(cuid())
+  userId    String
+  taskId    String
+  language  String   // 'ar' | 'en'
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("proposals")
+}
