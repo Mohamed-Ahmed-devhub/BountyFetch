@@ -1,300 +1,180 @@
-// ===================================================
-// Login.jsx — صفحة تسجيل الدخول
-// تصميم داكن احترافي متوافق مع البراند الكامل
-// المسار: frontend/src/pages/Auth/Login.jsx
-// ===================================================
-
+// Login.jsx — Supabase Auth (email/password + Google + GitHub)
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { authService } from '../../services/authService.js'
 import { useLanguage } from '../../context/LanguageContext.jsx'
 import Navbar from '../../components/layout/Navbar.jsx'
 
-export default function Login() {
-  const { login }            = useAuth()
-  const { isRTL, toggleLanguage, language } = useLanguage()
-  const navigate             = useNavigate()
+// SVG icons
+const GoogleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+    <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+  </svg>
+)
 
-  const [form, setForm]       = useState({ email: '', password: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+const GithubIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.84 1.237 1.84 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222 0 1.606-.015 2.896-.015 3.286 0 .315.216.69.825.573C20.565 21.795 24 17.298 24 12c0-6.63-5.37-12-12-12z"/>
+  </svg>
+)
+
+export default function Login() {
+  const { signInWithEmail, signInWithGoogle, signInWithGithub } = useAuth()
+  const { isRTL } = useLanguage()
+  const navigate   = useNavigate()
+
+  const [form, setForm]         = useState({ email: '', password: '' })
+  const [loading, setLoading]   = useState(false)
+  const [oauthLoad, setOauth]   = useState('')  // 'google' | 'github' | ''
+  const [error, setError]       = useState('')
   const [showPass, setShowPass] = useState(false)
 
-  const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
+  const handle = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
 
-  const handleSubmit = async e => {
+  const submitEmail = async e => {
     e.preventDefault()
-    if (!form.email || !form.password) {
-      setError(isRTL ? 'يرجى ملء جميع الحقول' : 'Please fill all fields')
-      return
-    }
+    if (!form.email || !form.password) { setError(isRTL ? 'أدخل جميع البيانات' : 'Fill all fields'); return }
     setLoading(true); setError('')
     try {
-      const res = await authService.login(form)
-      login(res.data.user, res.data.token)
+      await signInWithEmail(form.email, form.password)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || (isRTL ? 'بيانات غير صحيحة' : 'Invalid credentials'))
+      setError(isRTL ? 'بيانات غير صحيحة — تحقق من البريد وكلمة المرور' : 'Invalid credentials — check email and password')
     } finally { setLoading(false) }
   }
 
+  const handleGoogle = async () => {
+    setOauth('google'); setError('')
+    try { await signInWithGoogle() }
+    catch { setError(isRTL ? 'فشل تسجيل الدخول بـ Google' : 'Google sign-in failed'); setOauth('') }
+  }
+
+  const handleGithub = async () => {
+    setOauth('github'); setError('')
+    try { await signInWithGithub() }
+    catch { setError(isRTL ? 'فشل تسجيل الدخول بـ GitHub' : 'GitHub sign-in failed'); setOauth('') }
+  }
+
+  const inp = { background: '#FAFBFC', border: '1.5px solid #D8DEE9', borderRadius: 9, padding: '.65rem .9rem', fontSize: '.875rem', color: '#1A1A2E', width: '100%', outline: 'none', fontFamily: 'inherit', transition: 'border-color .15s' }
+
   return (
-    <div className="auth-root" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div style={{ background: '#F4F6F9', minHeight: '100vh', overflowX: 'hidden' }} dir={isRTL ? 'rtl' : 'ltr'}>
       <Navbar />
+      <div style={{ minHeight: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+        <div style={{ width: '100%', maxWidth: 420, background: '#fff', border: '1px solid #D8DEE9', borderRadius: 16, padding: '2.25rem', boxShadow: '0 4px 24px rgba(0,45,98,.08)' }}>
 
-      <div className="auth-page">
-        {/* توهج خلفي */}
-        <div className="auth-glow" aria-hidden="true" />
-
-        <div className="auth-card">
-
-          {/* رأس البطاقة */}
-          <div className="auth-head">
-            <Link to="/" className="auth-logo">
-              <span style={{ color: '#3b82f6', fontSize: '1.5rem' }}>◈</span>
-              <span>BountyFetch</span>
-            </Link>
-            <h1 className="auth-title">
-              {isRTL ? 'أهلاً بعودتك 👋' : 'Welcome Back 👋'}
+          {/* Logo + title */}
+          <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: '#002D62', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1.2rem', margin: '0 auto .75rem' }}>B</div>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#002D62', margin: 0 }}>
+              {isRTL ? 'أهلاً بعودتك' : 'Welcome Back'}
             </h1>
-            <p className="auth-sub">
+            <p style={{ fontSize: '.85rem', color: '#5A6478', margin: '.3rem 0 0' }}>
               {isRTL ? 'سجّل دخولك لمتابعة الاصطياد' : 'Sign in to continue hunting'}
             </p>
           </div>
 
-          {/* رسالة الخطأ */}
+          {/* OAuth buttons */}
+          <div style={{ display: 'flex', gap: '.65rem', marginBottom: '1.25rem' }}>
+            <button onClick={handleGoogle} disabled={!!oauthLoad || loading} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.5rem',
+              padding: '.62rem', borderRadius: 9, border: '1.5px solid #D8DEE9', background: '#fff',
+              fontSize: '.85rem', fontWeight: 600, color: '#1A1A2E', cursor: oauthLoad ? 'not-allowed' : 'pointer',
+              opacity: oauthLoad === 'github' ? .5 : 1, transition: 'all .15s',
+            }}
+              onMouseEnter={e => { if (!oauthLoad) e.currentTarget.style.borderColor = '#4285F4' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#D8DEE9' }}
+            >
+              {oauthLoad === 'google'
+                ? <span style={{ width: 16, height: 16, border: '2px solid #D8DEE9', borderTopColor: '#4285F4', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />
+                : <GoogleIcon />}
+              Google
+            </button>
+            <button onClick={handleGithub} disabled={!!oauthLoad || loading} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.5rem',
+              padding: '.62rem', borderRadius: 9, border: '1.5px solid #D8DEE9', background: '#fff',
+              fontSize: '.85rem', fontWeight: 600, color: '#1A1A2E', cursor: oauthLoad ? 'not-allowed' : 'pointer',
+              opacity: oauthLoad === 'google' ? .5 : 1, transition: 'all .15s',
+            }}
+              onMouseEnter={e => { if (!oauthLoad) { e.currentTarget.style.borderColor = '#1A1A2E'; e.currentTarget.style.background = '#f8f8f8' } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#D8DEE9'; e.currentTarget.style.background = '#fff' }}
+            >
+              {oauthLoad === 'github'
+                ? <span style={{ width: 16, height: 16, border: '2px solid #D8DEE9', borderTopColor: '#1A1A2E', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />
+                : <GithubIcon />}
+              GitHub
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginBottom: '1.25rem' }}>
+            <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+            <span style={{ fontSize: '.75rem', color: '#94A3B8', whiteSpace: 'nowrap' }}>
+              {isRTL ? 'أو بالبريد الإلكتروني' : 'or with email'}
+            </span>
+            <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="auth-error">
-              <span>⚠️</span> {error}
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '.7rem 1rem', fontSize: '.83rem', color: '#DC3545', marginBottom: '1rem' }}>
+              ⚠️ {error}
             </div>
           )}
 
-          {/* النموذج */}
-          <form className="auth-form" onSubmit={handleSubmit} noValidate>
-            <div className="auth-field">
-              <label className="auth-label">
+          {/* Email form */}
+          <form onSubmit={submitEmail} style={{ display: 'flex', flexDirection: 'column', gap: '.9rem' }}>
+            <div>
+              <label style={{ fontSize: '.75rem', fontWeight: 600, color: '#5A6478', display: 'block', marginBottom: '.3rem' }}>
                 {isRTL ? 'البريد الإلكتروني' : 'Email Address'}
               </label>
-              <div className="auth-input-wrap">
-                <svg className="auth-input-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                </svg>
-                <input
-                  type="email" name="email" value={form.email}
-                  onChange={handleChange}
-                  placeholder={isRTL ? 'example@email.com' : 'you@example.com'}
-                  className="auth-input"
-                  autoComplete="email"
-                  required
-                />
-              </div>
+              <input type="email" name="email" value={form.email} onChange={handle} placeholder="you@example.com"
+                style={inp} required autoComplete="email"
+                onFocus={e => e.target.style.borderColor = '#002D62'}
+                onBlur={e => e.target.style.borderColor = '#D8DEE9'} />
             </div>
-
-            <div className="auth-field">
-              <label className="auth-label">
+            <div>
+              <label style={{ fontSize: '.75rem', fontWeight: 600, color: '#5A6478', display: 'block', marginBottom: '.3rem' }}>
                 {isRTL ? 'كلمة المرور' : 'Password'}
               </label>
-              <div className="auth-input-wrap">
-                <svg className="auth-input-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  name="password" value={form.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="auth-input"
-                  autoComplete="current-password"
-                  required
-                />
-                <button type="button" className="auth-eye" onClick={() => setShowPass(v => !v)}>
+              <div style={{ position: 'relative' }}>
+                <input type={showPass ? 'text' : 'password'} name="password" value={form.password} onChange={handle}
+                  placeholder="••••••••" style={inp} required autoComplete="current-password"
+                  onFocus={e => e.target.style.borderColor = '#002D62'}
+                  onBlur={e => e.target.style.borderColor = '#D8DEE9'} />
+                <button type="button" onClick={() => setShowPass(v => !v)}
+                  style={{ position: 'absolute', insetInlineEnd: '.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '.9rem', opacity: .5 }}>
                   {showPass ? '🙈' : '👁️'}
                 </button>
               </div>
             </div>
-
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading ? (
-                <><span className="auth-spinner" /> {isRTL ? 'جاري الدخول...' : 'Signing in...'}</>
-              ) : (
-                isRTL ? 'دخول ←' : '→ Sign In'
-              )}
+            <button type="submit" disabled={loading} style={{
+              padding: '.8rem', borderRadius: 10, background: '#002D62', color: '#fff', fontWeight: 700,
+              fontSize: '.95rem', border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? .6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.5rem',
+              transition: 'all .2s', marginTop: '.15rem',
+            }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#003D82' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#002D62' }}
+            >
+              {loading
+                ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />{isRTL ? 'جاري الدخول...' : 'Signing in...'}</>
+                : isRTL ? 'دخول ←' : '→ Sign In'}
             </button>
           </form>
 
-          {/* رابط التسجيل */}
-          <p className="auth-switch">
+          <p style={{ textAlign: 'center', fontSize: '.82rem', color: '#5A6478', marginTop: '1.4rem', marginBottom: 0 }}>
             {isRTL ? 'ليس لديك حساب؟' : "Don't have an account?"}{' '}
-            <Link to="/register" className="auth-link">
-              {isRTL ? 'أنشئ حساباً مجاناً' : 'Create free account'}
+            <Link to="/register" style={{ color: '#002D62', fontWeight: 700, textDecoration: 'none' }}>
+              {isRTL ? 'أنشئ حساباً' : 'Sign up'}
             </Link>
           </p>
         </div>
       </div>
-
-      <AuthStyles />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-  )
-}
-
-// ─── الأنماط المشتركة ───
-export function AuthStyles() {
-  return (
-    <style>{`
-      .auth-root {
-        min-height: 100vh;
-        background: #020617;
-        color: #f1f5f9;
-        font-family: 'DM Sans','Tajawal',system-ui,sans-serif;
-      }
-      .auth-page {
-        min-height: calc(100vh - 64px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem 1rem;
-        position: relative;
-      }
-      .auth-glow {
-        position: absolute;
-        width: 500px; height: 500px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(37,99,235,.15), transparent 70%);
-        top: 50%; left: 50%;
-        transform: translate(-50%,-50%);
-        pointer-events: none;
-      }
-      .auth-card {
-        position: relative;
-        width: 100%;
-        max-width: 420px;
-        background: #0f172a;
-        border: 1px solid #1e293b;
-        border-radius: 20px;
-        padding: 2.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-      }
-      @media (max-width: 480px) { .auth-card { padding: 1.75rem 1.25rem; } }
-
-      .auth-head { display: flex; flex-direction: column; gap: .55rem; }
-      .auth-logo {
-        display: flex; align-items: center; gap: .4rem;
-        text-decoration: none;
-        font-family: 'Syne',system-ui,sans-serif;
-        font-size: .9rem; font-weight: 800; color: #f1f5f9;
-        margin-bottom: .5rem;
-      }
-      .auth-title {
-        font-family: 'Syne',system-ui,sans-serif;
-        font-size: 1.5rem; font-weight: 800;
-        letter-spacing: -.025em; margin: 0;
-      }
-      .auth-sub { font-size: .875rem; color: #64748b; margin: 0; }
-
-      .auth-error {
-        background: rgba(248,113,113,.08);
-        border: 1px solid rgba(248,113,113,.25);
-        border-radius: 10px;
-        padding: .75rem 1rem;
-        font-size: .82rem;
-        color: #fca5a5;
-        display: flex; align-items: center; gap: .4rem;
-      }
-
-      .auth-form { display: flex; flex-direction: column; gap: 1.1rem; }
-      .auth-field { display: flex; flex-direction: column; gap: .45rem; }
-      .auth-label {
-        font-size: .75rem; font-weight: 600;
-        letter-spacing: .04em;
-        color: #94a3b8;
-      }
-      .auth-input-wrap {
-        position: relative;
-        display: flex; align-items: center;
-      }
-      .auth-input-icon {
-        position: absolute;
-        inset-inline-start: .9rem;
-        color: #475569;
-        pointer-events: none;
-        flex-shrink: 0;
-      }
-      .auth-input {
-        width: 100%;
-        background: #020617;
-        border: 1px solid #1e293b;
-        border-radius: 11px;
-        padding: .7rem .9rem .7rem 2.65rem;
-        color: #f1f5f9;
-        font-size: .875rem;
-        font-family: inherit;
-        outline: none;
-        transition: border-color .2s, box-shadow .2s;
-      }
-      [dir="rtl"] .auth-input { padding: .7rem 2.65rem .7rem .9rem; }
-      .auth-input:focus {
-        border-color: rgba(59,130,246,.5);
-        box-shadow: 0 0 0 3px rgba(59,130,246,.08);
-      }
-      .auth-input::placeholder { color: #334155; }
-      .auth-eye {
-        position: absolute;
-        inset-inline-end: .75rem;
-        background: none; border: none;
-        cursor: pointer; font-size: .9rem;
-        padding: .2rem;
-        opacity: .6;
-        transition: opacity .2s;
-      }
-      .auth-eye:hover { opacity: 1; }
-
-      .auth-submit {
-        width: 100%;
-        padding: .85rem;
-        border-radius: 12px;
-        border: none;
-        background: linear-gradient(135deg, #2563eb, #0ea5e9);
-        color: #fff;
-        font-size: .95rem;
-        font-weight: 700;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: .5rem;
-        transition: all .2s;
-        margin-top: .25rem;
-      }
-      .auth-submit:hover:not(:disabled) {
-        box-shadow: 0 8px 25px rgba(37,99,235,.45);
-        transform: translateY(-1px);
-      }
-      .auth-submit:disabled { opacity: .55; cursor: not-allowed; }
-
-      .auth-spinner {
-        width: 16px; height: 16px;
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,.35);
-        border-top-color: #fff;
-        animation: authSpin .75s linear infinite;
-        flex-shrink: 0;
-      }
-      @keyframes authSpin { to { transform: rotate(360deg); } }
-
-      .auth-switch {
-        text-align: center;
-        font-size: .82rem;
-        color: #64748b;
-        margin: 0;
-      }
-      .auth-link {
-        color: #3b82f6;
-        text-decoration: none;
-        font-weight: 600;
-        transition: color .2s;
-      }
-      .auth-link:hover { color: #60a5fa; }
-    `}</style>
   )
 }

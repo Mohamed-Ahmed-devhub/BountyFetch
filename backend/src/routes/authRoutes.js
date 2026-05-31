@@ -1,5 +1,5 @@
 // ===================================================
-// authRoutes.js — مسارات المصادقة
+// authRoutes.js — مسارات المصادقة والملف الشخصي
 // المسار: backend/src/routes/authRoutes.js
 // ===================================================
 
@@ -8,9 +8,13 @@ const router         = express.Router()
 const authController = require('../controllers/authController')
 const auth           = require('../middleware/authMiddleware')
 
-router.post('/register',      authController.register)
-router.post('/login',         authController.login)
-router.get('/profile',  auth, authController.getProfile)
-router.put('/skills',   auth, authController.updateSkills)
+// ── Public ──
+router.post('/supabase-sync', authController.supabaseSync)
+
+// ── Protected ──
+router.get('/profile',                auth, authController.getProfile)
+router.put('/profile',                auth, authController.updateProfile)
+router.put('/skills',                 auth, authController.updateSkills)
+router.post('/avatar', auth, authController.uploadMiddleware, authController.uploadAvatar)
 
 module.exports = router

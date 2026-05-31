@@ -1,21 +1,29 @@
-// ===================================================
-// authMiddleware.js — التحقق من JWT
-// يُضاف على أي Route يحتاج تسجيل دخول
-// المسار: backend/src/middleware/authMiddleware.js
-// ===================================================
+// authMiddleware.js — verifies Supabase JWT tokens
+const { createClient } = require('@supabase/supabase-js')
 
-const jwt = require('jsonwebtoken')
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
-module.exports = function authMiddleware(req, res, next) {
+module.exports = async function authMiddleware(req, res, next) {
   const header = req.headers.authorization
-  if (!header?.startsWith('Bearer '))
-    return res.status(401).json({ message: 'تسجيل الدخول مطلوب' })
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Authorization required' })
+  }
+
+  const token = header.split(' ')[1]
 
   try {
-    const decoded = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET)
-    req.userId    = decoded.userId
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    if (error || !user) {
+      return res.status(401).json({ message: 'Invalid or expired token' })
+    }
+    req.userId      = user.id
+    req.supabaseUser = user
     next()
   } catch {
-    res.status(401).json({ message: 'Token غير صالح أو منتهٍ' })
+    res.status(401).json({ message: 'Token verification failed' })
   }
 }

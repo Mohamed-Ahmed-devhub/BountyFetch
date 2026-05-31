@@ -1,5 +1,5 @@
 // ===================================================
-// aiController.js — نقاط نهاية الذكاء الاصطناعي
+// aiController.js — Pillar 3: AI Proposal (Gemini JSON output)
 // المسار: backend/src/controllers/aiController.js
 // ===================================================
 
@@ -11,19 +11,28 @@ exports.generateProposal = async (req, res, next) => {
   try {
     const { taskId, language = 'ar' } = req.body
 
+    if (!taskId) return res.status(400).json({ message: 'taskId مطلوب' })
+
     const [task, user] = await Promise.all([
       prisma.task.findUnique({ where: { id: taskId } }),
       prisma.user.findUnique({ where: { id: req.userId } }),
     ])
 
     if (!task) return res.status(404).json({ message: 'المهمة غير موجودة' })
+    if (!user) return res.status(404).json({ message: 'المستخدم غير موجود' })
 
+    // Gemini يرجع { ar, en, highlights }
     const proposal = await generateProposalText(task, user, language)
 
-    // حفظ البروبوزال في قاعدة البيانات
+    // حفظ البروبوزال في قاعدة البيانات (النسخة حسب اللغة المطلوبة)
     await prisma.proposal.create({
-      data: { userId: req.userId, taskId, language, content: proposal },
-    }).catch(() => {}) // تجاهل خطأ الحفظ — البروبوزال يُعاد على أي حال
+      data: {
+        userId:   req.userId,
+        taskId,
+        language,
+        content: language === 'ar' ? proposal.ar : proposal.en,
+      },
+    }).catch(() => {})
 
     res.json({ proposal })
   } catch (e) { next(e) }

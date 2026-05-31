@@ -1,507 +1,408 @@
 // ===================================================
-// ProfileSetup.jsx — صفحة إعداد الملف الشخصي
-// يختار المستخدم مهاراته بعد التسجيل مباشرة
+// ProfileSetup.jsx — Pillar 6: Premium SaaS Profile
+// حقول احترافية + رفع Avatar عبر Backend API
 // المسار: frontend/src/pages/ProfileSetup.jsx
 // ===================================================
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import Navbar from '../components/layout/Navbar.jsx'
-import { authService } from '../services/authService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import api from '../services/api.js'
 
-// ─── مجموعات المهارات ───
 const SKILL_GROUPS = [
-  {
-    groupAr: '🎨 الواجهة الأمامية',
-    groupEn: '🎨 Frontend',
-    skills: [
-      { name: 'HTML',             levelAr: 'أساسي',    levelEn: 'Basic' },
-      { name: 'CSS',              levelAr: 'أساسي',    levelEn: 'Basic' },
-      { name: 'JavaScript',       levelAr: 'متوسط',    levelEn: 'Intermediate' },
-      { name: 'TypeScript',       levelAr: 'متقدم',    levelEn: 'Advanced' },
-      { name: 'React',            levelAr: 'متوسط',    levelEn: 'Intermediate' },
-      { name: 'Vue.js',           levelAr: 'متوسط',    levelEn: 'Intermediate' },
-      { name: 'Next.js',          levelAr: 'متقدم',    levelEn: 'Advanced' },
-      { name: 'Tailwind CSS',     levelAr: 'أساسي',    levelEn: 'Basic' },
-      { name: 'Bootstrap',        levelAr: 'أساسي',    levelEn: 'Basic' },
-      { name: 'Responsive Design',levelAr: 'أساسي',    levelEn: 'Basic' },
-    ],
-  },
-  {
-    groupAr: '⚙️ الخلفية',
-    groupEn: '⚙️ Backend',
-    skills: [
-      { name: 'Node.js',    levelAr: 'متوسط', levelEn: 'Intermediate' },
-      { name: 'Python',     levelAr: 'متوسط', levelEn: 'Intermediate' },
-      { name: 'PHP',        levelAr: 'متوسط', levelEn: 'Intermediate' },
-      { name: 'Laravel',    levelAr: 'متقدم', levelEn: 'Advanced' },
-      { name: 'Express.js', levelAr: 'متوسط', levelEn: 'Intermediate' },
-    ],
-  },
-  {
-    groupAr: '🗄️ قواعد البيانات',
-    groupEn: '🗄️ Databases',
-    skills: [
-      { name: 'MySQL',      levelAr: 'متوسط', levelEn: 'Intermediate' },
-      { name: 'PostgreSQL', levelAr: 'متقدم', levelEn: 'Advanced' },
-      { name: 'MongoDB',    levelAr: 'متوسط', levelEn: 'Intermediate' },
-      { name: 'Firebase',   levelAr: 'أساسي', levelEn: 'Basic' },
-    ],
-  },
-  {
-    groupAr: '🛠 أدوات ومنصات',
-    groupEn: '🛠 Tools & Platforms',
-    skills: [
-      { name: 'WordPress', levelAr: 'أساسي', levelEn: 'Basic' },
-      { name: 'Shopify',   levelAr: 'أساسي', levelEn: 'Basic' },
-      { name: 'Figma',     levelAr: 'أساسي', levelEn: 'Basic' },
-      { name: 'Git/GitHub',levelAr: 'أساسي', levelEn: 'Basic' },
-      { name: 'Docker',    levelAr: 'متقدم', levelEn: 'Advanced' },
-    ],
-  },
+  { ar:'🎨 الواجهة الأمامية', en:'🎨 Frontend',   skills:['HTML','CSS','JavaScript','TypeScript','React','Vue.js','Next.js','Tailwind CSS','Bootstrap','Responsive Design'] },
+  { ar:'⚙️ الخلفية',          en:'⚙️ Backend',    skills:['Node.js','Python','PHP','Laravel','Express.js','Django'] },
+  { ar:'📱 الموبايل',         en:'📱 Mobile',     skills:['Flutter','React Native','Dart','Swift','Kotlin'] },
+  { ar:'🤖 AI & Data',        en:'🤖 AI & Data',  skills:['Machine Learning','Data Science','TensorFlow','PyTorch','SQL'] },
+  { ar:'🔐 الأمن',            en:'🔐 Security',   skills:['Cybersecurity','Pentesting','Linux','Networking'] },
+  { ar:'🎮 الألعاب',          en:'🎮 Games',      skills:['Unity','Unreal Engine','C#','C++'] },
+  { ar:'🛠 أدوات',            en:'🛠 Tools',      skills:['WordPress','Shopify','Figma','Git','Firebase','MongoDB','MySQL','Docker'] },
 ]
 
-// ألوان المستويات
-const LEVEL_COLORS = {
-  أساسي:    { bg: 'rgba(34,197,94,.08)',   border: 'rgba(34,197,94,.25)',   text: '#4ade80' },
-  متوسط:    { bg: 'rgba(251,191,36,.08)',  border: 'rgba(251,191,36,.25)',  text: '#fbbf24' },
-  متقدم:    { bg: 'rgba(59,130,246,.08)',  border: 'rgba(59,130,246,.25)',  text: '#60a5fa' },
-  Basic:        { bg: 'rgba(34,197,94,.08)',   border: 'rgba(34,197,94,.25)',   text: '#4ade80' },
-  Intermediate: { bg: 'rgba(251,191,36,.08)',  border: 'rgba(251,191,36,.25)',  text: '#fbbf24' },
-  Advanced:     { bg: 'rgba(59,130,246,.08)',  border: 'rgba(59,130,246,.25)',  text: '#60a5fa' },
-}
+const EXPERIENCE_OPTIONS = [
+  { value: 0, ar: 'أقل من سنة', en: 'Less than 1 year' },
+  { value: 1, ar: '١ - ٢ سنة',  en: '1 - 2 years' },
+  { value: 3, ar: '٣ - ٥ سنوات', en: '3 - 5 years' },
+  { value: 6, ar: '٦ - ١٠ سنوات', en: '6 - 10 years' },
+  { value: 11, ar: 'أكثر من ١٠ سنوات', en: '10+ years' },
+]
 
 export default function ProfileSetup() {
-  const { isRTL }          = useLanguage()
-  const { user }           = useAuth()
-  const navigate           = useNavigate()
+  const { user, updateUser } = useAuth()
+  const { isRTL }            = useLanguage()
+  const navigate             = useNavigate()
+  const fileRef              = useRef(null)
 
+  // Skills
   const [selected, setSelected] = useState([])
-  const [saving, setSaving]     = useState(false)
-  const [saved, setSaved]       = useState(false)
-  const [step, setStep]         = useState('skills') // 'skills' | 'done'
 
-  const toggleSkill = (skillName) => {
-    setSelected(prev =>
-      prev.includes(skillName)
-        ? prev.filter(s => s !== skillName)
-        : [...prev, skillName]
-    )
+  // Profile fields
+  const [bio,             setBio]             = useState('')
+  const [jobTitle,        setJobTitle]        = useState('')
+  const [linkedinUrl,     setLinkedinUrl]     = useState('')
+  const [githubUrl,       setGithubUrl]       = useState('')
+  const [yearsExperience, setYearsExperience] = useState(null)
+
+  // Avatar
+  const [avatarUrl,  setAvatarUrl]  = useState('')
+  const [uploading,  setUploading]  = useState(false)
+  const [uploadErr,  setUploadErr]  = useState('')
+
+  // Save
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
+  const [saveErr, setSaveErr] = useState('')
+
+  const [tab, setTab] = useState('skills')
+
+  // ── تحميل البيانات الحالية ──
+  useEffect(() => {
+    if (!user?.id) return
+    api.get('/auth/profile').then(({ data }) => {
+      if (data.skills?.length)     setSelected(data.skills)
+      if (data.bio)                setBio(data.bio)
+      if (data.jobTitle)           setJobTitle(data.jobTitle)
+      if (data.linkedinUrl)        setLinkedinUrl(data.linkedinUrl)
+      if (data.githubUrl)          setGithubUrl(data.githubUrl)
+      if (data.yearsExperience != null) setYearsExperience(data.yearsExperience)
+      if (data.avatar)             setAvatarUrl(data.avatar)
+    }).catch(() => {})
+  }, [user?.id])
+
+  const toggle = useCallback(s =>
+    setSelected(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
+  , [])
+
+  // ── Pillar 6: رفع Avatar عبر Backend API ──
+  const uploadAvatar = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setUploadErr('')
+
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const { data } = await api.post('/auth/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      })
+
+      setAvatarUrl(data.avatarUrl)
+      updateUser({ avatar: data.avatarUrl })
+    } catch (err) {
+      const msg = err.response?.data?.message || 'فشل رفع الصورة، حاول مرة أخرى'
+      setUploadErr(msg)
+      console.error('Avatar upload failed:', err.message)
+    } finally {
+      setUploading(false)
+      e.target.value = '' // reset input
+    }
   }
 
-  const handleSave = async () => {
-    if (selected.length === 0) return
+  // ── Pillar 6: حفظ الملف الشخصي عبر Backend API ──
+  const save = async () => {
     setSaving(true)
+    setSaveErr('')
     try {
-      await authService.updateSkills(selected)
+      const { data } = await api.put('/auth/profile', {
+        skills:          selected,
+        bio,
+        jobTitle,
+        linkedinUrl,
+        githubUrl,
+        yearsExperience,
+      })
+
+      updateUser({
+        skills:          data.user.skills,
+        bio:             data.user.bio,
+        jobTitle:        data.user.jobTitle,
+        linkedinUrl:     data.user.linkedinUrl,
+        githubUrl:       data.user.githubUrl,
+        yearsExperience: data.user.yearsExperience,
+        avatar:          avatarUrl,
+      })
+
       setSaved(true)
-      setStep('done')
+      setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      console.error('خطأ في حفظ المهارات:', err)
+      setSaveErr(err.response?.data?.message || 'فشل الحفظ، حاول مرة أخرى')
     } finally {
       setSaving(false)
     }
   }
 
-  const allSkillsCount = SKILL_GROUPS.reduce((sum, g) => sum + g.skills.length, 0)
-  const progress = Math.round((selected.length / allSkillsCount) * 100)
+  const total = SKILL_GROUPS.reduce((s, g) => s + g.skills.length, 0)
+  const pct   = Math.round((selected.length / total) * 100)
+
+  const TAB_STYLE = (active) => ({
+    padding: '.55rem 1.25rem', borderRadius: 8, fontWeight: active ? 700 : 500,
+    fontSize: '.875rem', border: 'none', cursor: 'pointer', transition: 'all .15s',
+    background: active ? '#002D62' : 'transparent',
+    color:      active ? '#fff'    : '#5A6478',
+  })
+
+  const INP_STYLE = {
+    width:'100%', padding:'.7rem .9rem', border:'1.5px solid #D8DEE9',
+    borderRadius:10, fontSize:'.875rem', color:'#1A1A2E', background:'#FAFBFC',
+    outline:'none', fontFamily:'inherit', transition:'border-color .15s',
+    boxSizing:'border-box',
+  }
 
   return (
-    <div className="ps-root" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div style={{ background:'#F4F6F9', minHeight:'100vh', overflowX:'hidden' }} dir={isRTL?'rtl':'ltr'}>
       <Navbar />
+      <div style={{ maxWidth:860, margin:'0 auto', padding:'2rem 1.5rem 6rem' }}>
 
-      <AnimatePresence mode="wait">
-        {step === 'skills' ? (
-          <motion.div
-            key="skills"
-            className="ps-container"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            {/* ─── رأس الصفحة ─── */}
-            <div className="ps-head">
-              <div className="ps-head-text">
-                <h1 className="ps-title">
-                  {isRTL ? '⚡ اختر مهاراتك' : '⚡ Select Your Skills'}
-                </h1>
-                <p className="ps-sub">
-                  {isRTL
-                    ? 'الرادار سيستخدم هذه المعلومات لإرسال أدق الفرص المناسبة لك فقط'
-                    : 'The radar will use this to send you only the most relevant opportunities'}
-                </p>
+        {/* Header */}
+        <div style={{ marginBottom:'1.75rem' }}>
+          <h1 style={{ fontFamily:'Plus Jakarta Sans,Cairo,sans-serif', fontSize:'clamp(1.35rem,2.5vw,1.75rem)', fontWeight:800, color:'#002D62', marginBottom:'.35rem' }}>
+            {isRTL ? '⚙️ ملفي الشخصي' : '⚙️ My Profile'}
+          </h1>
+          <p style={{ color:'#5A6478', fontSize:'.9rem', margin:0 }}>
+            {isRTL ? 'أدر مهاراتك وبياناتك المهنية وصورتك الشخصية' : 'Manage your skills, professional info, and avatar'}
+          </p>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:'flex', gap:'.35rem', background:'#fff', border:'1px solid #D8DEE9', borderRadius:10, padding:'.35rem', width:'fit-content', marginBottom:'1.5rem' }}>
+          <button style={TAB_STYLE(tab==='skills')}  onClick={()=>setTab('skills')}>{isRTL?'🛠 المهارات':'🛠 Skills'}</button>
+          <button style={TAB_STYLE(tab==='profile')} onClick={()=>setTab('profile')}>{isRTL?'👤 البيانات المهنية':'👤 Professional Info'}</button>
+          <button style={TAB_STYLE(tab==='avatar')}  onClick={()=>setTab('avatar')}>{isRTL?'📷 الصورة':'📷 Avatar'}</button>
+        </div>
+
+        {/* ── TAB: SKILLS ── */}
+        {tab === 'skills' && (
+          <>
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.25rem 1.5rem', marginBottom:'1.25rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'.5rem' }}>
+                <span style={{ fontSize:'.82rem', fontWeight:600, color:'#5A6478' }}>{selected.length} {isRTL?'مهارة مختارة':'skills selected'}</span>
+                <span style={{ fontSize:'.82rem', fontWeight:700, color:'#002D62' }}>{pct}%</span>
               </div>
-
-              {/* شريط التقدم */}
-              <div className="ps-progress-wrap">
-                <div className="ps-progress-info">
-                  <span className="ps-progress-count">
-                    {selected.length} {isRTL ? 'مهارة مختارة' : 'skills selected'}
-                  </span>
-                  <span className="ps-progress-pct">{progress}%</span>
-                </div>
-                <div className="ps-progress-bar">
-                  <motion.div
-                    className="ps-progress-fill"
-                    animate={{ width: `${progress}%` }}
-                    transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-                  />
-                </div>
+              <div style={{ height:5, background:'#E2E8F0', borderRadius:99, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${pct}%`, background:'linear-gradient(90deg,#002D62,#0EA5E9)', borderRadius:99, transition:'width .4s ease' }} />
               </div>
             </div>
-
-            {/* ─── مجموعات المهارات ─── */}
-            <div className="ps-groups">
-              {SKILL_GROUPS.map((group, gi) => (
-                <div key={gi} className="ps-group">
-                  <h2 className="ps-group-title">
-                    {isRTL ? group.groupAr : group.groupEn}
-                  </h2>
-                  <div className="ps-skills-grid">
-                    {group.skills.map((skill) => {
-                      const isActive = selected.includes(skill.name)
-                      const levelKey = isRTL ? skill.levelAr : skill.levelEn
-                      const levelStyle = LEVEL_COLORS[levelKey] || LEVEL_COLORS.Basic
-
+            <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+              {SKILL_GROUPS.map((g,gi) => (
+                <div key={gi} style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.25rem 1.5rem' }}>
+                  <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'.85rem', paddingBottom:'.6rem', borderBottom:'1px solid #F1F5F9' }}>
+                    {isRTL?g.ar:g.en}
+                  </h3>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:'.4rem' }}>
+                    {g.skills.map(s => {
+                      const active = selected.includes(s)
                       return (
-                        <motion.button
-                          key={skill.name}
-                          whileTap={{ scale: .96 }}
-                          onClick={() => toggleSkill(skill.name)}
-                          className={`ps-skill-btn ${isActive ? 'ps-skill-active' : ''}`}
-                        >
-                          {/* أيقونة الاختيار */}
-                          <span className="ps-skill-check">
-                            {isActive ? '✓' : ''}
-                          </span>
-
-                          <span className="ps-skill-name">{skill.name}</span>
-
-                          {/* مستوى الصعوبة */}
-                          <span
-                            className="ps-skill-level"
-                            style={{
-                              background: levelStyle.bg,
-                              border:     `1px solid ${levelStyle.border}`,
-                              color:      levelStyle.text,
-                            }}
-                          >
-                            {isRTL ? skill.levelAr : skill.levelEn}
-                          </span>
-                        </motion.button>
+                        <button key={s} onClick={()=>toggle(s)} style={{
+                          fontSize:'.8rem', fontWeight:active?700:500, padding:'.38rem .85rem',
+                          borderRadius:99, cursor:'pointer', transition:'all .15s',
+                          background:active?'#002D62':'#F4F6F9', color:active?'#fff':'#5A6478',
+                          border:`1.5px solid ${active?'#002D62':'#D8DEE9'}`,
+                        }}>{active?'✓ ':''}{s}</button>
                       )
                     })}
                   </div>
                 </div>
               ))}
             </div>
+          </>
+        )}
 
-            {/* ─── أزرار الإجراء ─── */}
-            <div className="ps-actions">
-              {selected.length > 0 && (
-                <div className="ps-selected-preview">
-                  <p className="ps-preview-label">
-                    {isRTL ? 'المهارات المختارة:' : 'Selected:'}
-                  </p>
-                  <div className="ps-preview-tags">
-                    {selected.map(s => (
-                      <span key={s} className="ps-preview-tag">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
+        {/* ── TAB: PROFILE INFO ── Pillar 6 ── */}
+        {tab === 'profile' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
 
-              <div className="ps-btn-row">
-                <button
-                  className="ps-skip-btn"
-                  onClick={() => navigate('/dashboard')}
-                >
-                  {isRTL ? 'تخطي الآن، سأكمل لاحقاً' : 'Skip for now, I\'ll do it later'}
-                </button>
+            {/* Job Title */}
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.5rem' }}>
+              <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'1rem' }}>
+                💼 {isRTL?'المسمى الوظيفي':'Job Title'}
+              </h3>
+              <input
+                value={jobTitle} onChange={e=>setJobTitle(e.target.value)}
+                placeholder={isRTL?'مثال: مطور ويب فول ستاك | Senior Frontend Developer':'e.g. Full Stack Web Developer | Senior Frontend Engineer'}
+                style={INP_STYLE}
+                onFocus={e=>e.target.style.borderColor='#002D62'}
+                onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+              />
+            </div>
 
-                <button
-                  className="ps-save-btn"
-                  onClick={handleSave}
-                  disabled={saving || selected.length === 0}
-                >
-                  {saving ? (
-                    <><span className="ps-spinner" /> {isRTL ? 'جاري الحفظ...' : 'Saving...'}</>
-                  ) : (
-                    <>
-                      {isRTL
-                        ? `حفظ (${selected.length}) مهارة وابدأ ←`
-                        : `→ Save (${selected.length}) skills & Start`}
-                    </>
-                  )}
-                </button>
+            {/* Years of Experience */}
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.5rem' }}>
+              <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'1rem' }}>
+                📊 {isRTL?'سنوات الخبرة':'Years of Experience'}
+              </h3>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:'.5rem' }}>
+                {EXPERIENCE_OPTIONS.map(opt => {
+                  const active = yearsExperience === opt.value
+                  return (
+                    <button key={opt.value} onClick={()=>setYearsExperience(opt.value)} style={{
+                      padding:'.5rem 1.1rem', borderRadius:99, fontSize:'.82rem', fontWeight:active?700:500, cursor:'pointer', transition:'all .15s',
+                      background:active?'#002D62':'#F4F6F9', color:active?'#fff':'#5A6478',
+                      border:`1.5px solid ${active?'#002D62':'#D8DEE9'}`,
+                    }}>
+                      {isRTL?opt.ar:opt.en}
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          </motion.div>
 
-        ) : (
-          /* ─── شاشة النجاح ─── */
-          <motion.div
-            key="done"
-            className="ps-done"
-            initial={{ opacity: 0, scale: .92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          >
-            <div className="ps-done-icon">🎯</div>
-            <h2 className="ps-done-title">
-              {isRTL ? 'ملفك جاهز!' : 'Profile Ready!'}
-            </h2>
-            <p className="ps-done-sub">
-              {isRTL
-                ? `الرادار الآن معدّل بدقة على ${selected.length} مهارة. ستصلك الفرص المناسبة فور ظهورها.`
-                : `The radar is now precisely tuned to ${selected.length} skills. You'll get matching opportunities as soon as they appear.`}
-            </p>
-            <button
-              className="ps-save-btn"
-              onClick={() => navigate('/dashboard')}
-              style={{ marginTop: '1rem' }}
-            >
-              {isRTL ? 'افتح الرادار ←' : '→ Open Radar'}
-            </button>
-          </motion.div>
+            {/* LinkedIn */}
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.5rem' }}>
+              <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'1rem' }}>
+                🔗 LinkedIn
+              </h3>
+              <div style={{ position:'relative' }}>
+                <span style={{ position:'absolute', [isRTL?'right':'left']:'.9rem', top:'50%', transform:'translateY(-50%)', fontSize:'.82rem', color:'#94A3B8', pointerEvents:'none' }}>
+                  linkedin.com/in/
+                </span>
+                <input
+                  value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)}
+                  placeholder={isRTL?'اسم المستخدم':'your-username'}
+                  style={{ ...INP_STYLE, paddingInlineStart:'9.5rem' }}
+                  onFocus={e=>e.target.style.borderColor='#0A66C2'}
+                  onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+                />
+              </div>
+            </div>
+
+            {/* GitHub */}
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.5rem' }}>
+              <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'1rem' }}>
+                🐙 GitHub
+              </h3>
+              <div style={{ position:'relative' }}>
+                <span style={{ position:'absolute', [isRTL?'right':'left']:'.9rem', top:'50%', transform:'translateY(-50%)', fontSize:'.82rem', color:'#94A3B8', pointerEvents:'none' }}>
+                  github.com/
+                </span>
+                <input
+                  value={githubUrl} onChange={e=>setGithubUrl(e.target.value)}
+                  placeholder={isRTL?'اسم المستخدم':'your-username'}
+                  style={{ ...INP_STYLE, paddingInlineStart:'7rem' }}
+                  onFocus={e=>e.target.style.borderColor='#1a1a1a'}
+                  onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+                />
+              </div>
+            </div>
+
+            {/* Bio */}
+            <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.5rem' }}>
+              <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'.6rem' }}>
+                📝 {isRTL?'نبذة مهنية':'Professional Bio'}
+              </h3>
+              <p style={{ fontSize:'.8rem', color:'#5A6478', marginBottom:'.85rem' }}>
+                {isRTL?'تظهر في ملتقى المطورين ومع بروبوزالاتك':'Shown in Dev Hub and next to your proposals'}
+              </p>
+              <textarea
+                value={bio} onChange={e=>setBio(e.target.value)}
+                placeholder={isRTL
+                  ?'مثال: مطور ويب فرونتيند بخبرة 3 سنوات، متخصص في React وTailwind. أساعد العملاء في بناء واجهات سريعة وجميلة...'
+                  :'e.g. Frontend developer with 3+ years specializing in React & Tailwind. I help clients build fast, beautiful interfaces...'}
+                rows={5} maxLength={400}
+                style={{ ...INP_STYLE, resize:'vertical' }}
+                onFocus={e=>e.target.style.borderColor='#002D62'}
+                onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+              />
+              <p style={{ fontSize:'.72rem', color:'#94A3B8', marginTop:'.35rem', textAlign:'end' }}>{bio.length}/400</p>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
-      <style>{`
-        .ps-root {
-          --ps-bg:      #020617;
-          --ps-surface: #0f172a;
-          --ps-border:  #1e293b;
-          --ps-bl:      #334155;
-          --ps-royal:   #2563eb;
-          --ps-rlt:     #3b82f6;
-          --ps-sky:     #0ea5e9;
-          --ps-text:    #f1f5f9;
-          --ps-muted:   #94a3b8;
-          --ps-subtle:  #475569;
+        {/* ── TAB: AVATAR ── */}
+        {tab === 'avatar' && (
+          <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'2rem' }}>
+            <h3 style={{ fontSize:'.92rem', fontWeight:700, color:'#002D62', marginBottom:'1.5rem' }}>
+              📷 {isRTL?'الصورة الشخصية':'Profile Picture'}
+            </h3>
 
-          min-height: 100vh;
-          background: var(--ps-bg);
-          color: var(--ps-text);
-          font-family: 'DM Sans','Tajawal',system-ui,sans-serif;
-        }
+            {/* Preview */}
+            <div style={{ display:'flex', alignItems:'center', gap:'2rem', flexWrap:'wrap', marginBottom:'1.5rem' }}>
+              <div style={{ position:'relative' }}>
+                <div style={{ width:100, height:100, borderRadius:'50%', background:'#E8EEF7', border:'3px solid #D8DEE9', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt="avatar" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    : <span style={{ fontSize:'2.5rem' }}>👤</span>}
+                </div>
+                {uploading && (
+                  <div style={{ position:'absolute', inset:0, borderRadius:'50%', background:'rgba(0,45,98,.6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite', display:'inline-block' }} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <p style={{ fontSize:'.85rem', fontWeight:600, color:'#1A1A2E', margin:'0 0 .3rem' }}>
+                  {user?.name || '—'}
+                </p>
+                <p style={{ fontSize:'.78rem', color:'#5A6478', margin:'0 0 .85rem' }}>
+                  {jobTitle || (isRTL?'مطور برمجيات':'Software Developer')}
+                </p>
+                <div style={{ display:'flex', gap:'.6rem', flexWrap:'wrap' }}>
+                  <button
+                    onClick={()=>fileRef.current?.click()}
+                    disabled={uploading}
+                    style={{ padding:'.55rem 1.1rem', borderRadius:9, background:'#002D62', color:'#fff', fontWeight:600, fontSize:'.85rem', border:'none', cursor:uploading?'not-allowed':'pointer', opacity:uploading?.5:1 }}
+                  >
+                    {uploading ? (isRTL?'⏳ جاري الرفع...':'⏳ Uploading...') : (isRTL?'📷 رفع صورة':'📷 Upload Photo')}
+                  </button>
+                  {avatarUrl && (
+                    <button onClick={()=>setAvatarUrl('')} style={{ padding:'.5rem .9rem', borderRadius:8, background:'transparent', border:'1px solid #FECACA', color:'#DC3545', fontSize:'.82rem', cursor:'pointer' }}>
+                      {isRTL?'حذف':'Remove'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-        .ps-container {
-          max-width: 900px;
-          margin: 0 auto;
-          padding: 2.5rem 1.5rem 5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 2.5rem;
-        }
-        @media (max-width: 600px) { .ps-container { padding: 1.5rem .9rem 4rem; } }
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadAvatar} style={{ display:'none' }} />
 
-        /* رأس الصفحة */
-        .ps-head {
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-        .ps-title {
-          font-family: 'Syne','Cairo',system-ui,sans-serif;
-          font-size: clamp(1.5rem, 3vw, 2rem);
-          font-weight: 800; letter-spacing: -.025em; margin: 0;
-        }
-        .ps-sub { font-size: .9rem; color: var(--ps-muted); margin: 0; line-height: 1.6; }
+            {uploadErr && (
+              <div style={{ background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'.65rem .9rem', fontSize:'.83rem', color:'#DC3545', marginBottom:'.75rem' }}>
+                ⚠️ {uploadErr}
+              </div>
+            )}
 
-        /* شريط التقدم */
-        .ps-progress-wrap { display: flex; flex-direction: column; gap: .5rem; }
-        .ps-progress-info {
-          display: flex; justify-content: space-between;
-          font-size: .78rem; color: var(--ps-muted);
-        }
-        .ps-progress-count { font-weight: 600; }
-        .ps-progress-pct { color: var(--ps-rlt); font-weight: 700; }
-        .ps-progress-bar {
-          height: 4px; background: var(--ps-border);
-          border-radius: 99px; overflow: hidden;
-        }
-        .ps-progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, var(--ps-royal), var(--ps-sky));
-          border-radius: 99px;
-          min-width: 0;
-        }
+            <div style={{ background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:9, padding:'1rem', fontSize:'.8rem', color:'#5A6478', lineHeight:1.7 }}>
+              <p style={{ margin:0, fontWeight:600, color:'#1A1A2E', marginBottom:'.3rem' }}>
+                {isRTL?'ملاحظات:':'Notes:'}
+              </p>
+              {isRTL
+                ? <ul style={{ margin:0, paddingInlineStart:'1.2rem' }}>
+                    <li>الحجم الأقصى: 5 ميغابايت</li>
+                    <li>الصيغ المدعومة: JPG، PNG، WebP، GIF</li>
+                    <li>الأبعاد الموصى بها: 400×400 بكسل أو أكبر</li>
+                  </ul>
+                : <ul style={{ margin:0, paddingInlineStart:'1.2rem' }}>
+                    <li>Max size: 5 MB</li>
+                    <li>Supported: JPG, PNG, WebP, GIF</li>
+                    <li>Recommended: 400×400px or larger</li>
+                  </ul>}
+            </div>
+          </div>
+        )}
 
-        /* مجموعات المهارات */
-        .ps-groups { display: flex; flex-direction: column; gap: 2rem; }
-        .ps-group { display: flex; flex-direction: column; gap: 1rem; }
-        .ps-group-title {
-          font-family: 'Syne','Cairo',system-ui,sans-serif;
-          font-size: 1rem; font-weight: 700; margin: 0;
-          color: var(--ps-text);
-          padding-bottom: .65rem;
-          border-bottom: 1px solid var(--ps-border);
-        }
-
-        .ps-skills-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-          gap: .6rem;
-        }
-        @media (max-width: 480px) {
-          .ps-skills-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        .ps-skill-btn {
-          display: flex;
-          align-items: center;
-          gap: .5rem;
-          padding: .65rem .85rem;
-          border-radius: 11px;
-          border: 1px solid var(--ps-border);
-          background: var(--ps-surface);
-          cursor: pointer;
-          transition: all .2s;
-          text-align: start;
-          position: relative;
-          overflow: hidden;
-        }
-        .ps-skill-btn:hover {
-          border-color: var(--ps-bl);
-          background: rgba(255,255,255,.03);
-        }
-        .ps-skill-active {
-          border-color: var(--ps-royal) !important;
-          background: rgba(37,99,235,.08) !important;
-        }
-        .ps-skill-active::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(135deg, rgba(37,99,235,.06), transparent);
-        }
-
-        .ps-skill-check {
-          width: 18px; height: 18px;
-          border-radius: 5px;
-          border: 1px solid var(--ps-border);
-          background: transparent;
-          display: flex; align-items: center; justify-content: center;
-          font-size: .7rem; font-weight: 800;
-          color: #fff;
-          flex-shrink: 0;
-          transition: all .2s;
-        }
-        .ps-skill-active .ps-skill-check {
-          background: linear-gradient(135deg, var(--ps-royal), var(--ps-sky));
-          border-color: transparent;
-        }
-
-        .ps-skill-name {
-          font-size: .82rem; font-weight: 600;
-          color: var(--ps-muted);
-          flex: 1;
-          transition: color .2s;
-        }
-        .ps-skill-active .ps-skill-name { color: var(--ps-text); }
-
-        .ps-skill-level {
-          font-size: .6rem; font-weight: 700;
-          padding: .15rem .45rem;
-          border-radius: 99px;
-          letter-spacing: .04em;
-          white-space: nowrap;
-          flex-shrink: 0;
-        }
-
-        /* أزرار الإجراء */
-        .ps-actions {
-          display: flex; flex-direction: column; gap: 1.25rem;
-          position: sticky; bottom: 0;
-          background: linear-gradient(to top, var(--ps-bg) 80%, transparent);
-          padding: 1.5rem 0 .5rem;
-          margin-top: -1rem;
-        }
-
-        .ps-selected-preview {
-          display: flex; flex-direction: column; gap: .5rem;
-        }
-        .ps-preview-label {
-          font-size: .72rem; font-weight: 700;
-          color: var(--ps-subtle); margin: 0;
-          letter-spacing: .06em; text-transform: uppercase;
-        }
-        .ps-preview-tags { display: flex; flex-wrap: wrap; gap: .35rem; }
-        .ps-preview-tag {
-          font-size: .72rem; font-weight: 600;
-          padding: .2rem .6rem;
-          border-radius: 99px;
-          background: rgba(37,99,235,.1);
-          border: 1px solid rgba(37,99,235,.25);
-          color: var(--ps-rlt);
-        }
-
-        .ps-btn-row {
-          display: flex; align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap; gap: 1rem;
-        }
-
-        .ps-skip-btn {
-          font-size: .82rem; font-weight: 500;
-          color: var(--ps-subtle);
-          background: none; border: none;
-          cursor: pointer; padding: .4rem;
-          transition: color .2s;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
-        .ps-skip-btn:hover { color: var(--ps-muted); }
-
-        .ps-save-btn {
-          display: flex; align-items: center; gap: .5rem;
-          font-size: .95rem; font-weight: 700;
-          padding: .8rem 1.75rem;
-          border-radius: 12px; border: none;
-          background: linear-gradient(135deg, var(--ps-royal), var(--ps-sky));
-          color: #fff; cursor: pointer;
-          transition: all .2s;
-        }
-        .ps-save-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 25px rgba(37,99,235,.4);
-        }
-        .ps-save-btn:disabled { opacity: .45; cursor: not-allowed; }
-
-        .ps-spinner {
-          width: 16px; height: 16px;
-          border-radius: 50%;
-          border: 2px solid rgba(255,255,255,.3);
-          border-top-color: #fff;
-          animation: psSpin .75s linear infinite;
-        }
-        @keyframes psSpin { to { transform: rotate(360deg); } }
-
-        /* شاشة النجاح */
-        .ps-done {
-          max-width: 480px; margin: 0 auto;
-          padding: 4rem 1.5rem;
-          display: flex; flex-direction: column;
-          align-items: center; text-align: center;
-          gap: 1rem;
-        }
-        .ps-done-icon { font-size: 4rem; }
-        .ps-done-title {
-          font-family: 'Syne','Cairo',system-ui,sans-serif;
-          font-size: 2rem; font-weight: 800; margin: 0;
-          background: linear-gradient(135deg, #60a5fa, #38bdf8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .ps-done-sub {
-          font-size: .95rem; color: var(--ps-muted);
-          line-height: 1.7; margin: 0;
-        }
-      `}</style>
+        {/* Save Bar */}
+        <div style={{ position:'sticky', bottom:0, background:'linear-gradient(to top, #F4F6F9 80%, transparent)', padding:'1.25rem 0 .5rem', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'1rem', marginTop:'1.5rem' }}>
+          <button onClick={()=>navigate('/dashboard')} style={{ fontSize:'.83rem', fontWeight:500, color:'#5A6478', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>
+            {isRTL?'رجوع للرادار':'Back to Radar'}
+          </button>
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'.35rem' }}>
+            {saveErr && <p style={{ fontSize:'.75rem', color:'#DC3545', margin:0 }}>⚠️ {saveErr}</p>}
+            <button onClick={save} disabled={saving || tab==='avatar'} style={{ padding:'.75rem 1.75rem', borderRadius:10, background:saved?'#28A745':'#002D62', color:'#fff', fontWeight:700, fontSize:'.95rem', border:'none', cursor:(saving||tab==='avatar')?'not-allowed':'pointer', opacity:(saving||tab==='avatar')?.6:1, display:'flex', alignItems:'center', gap:'.5rem', transition:'all .3s' }}>
+              {saving
+                ? <><span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite', display:'inline-block' }} />{isRTL?'جاري الحفظ...':'Saving...'}</>
+                : saved ? (isRTL?'✅ تم الحفظ!':'✅ Saved!')
+                  : tab==='avatar' ? (isRTL?'الصورة تُحفظ تلقائياً':'Avatar saves automatically')
+                  : (isRTL?`💾 حفظ (${selected.length}) مهارة`:`💾 Save (${selected.length}) Skills`)}
+            </button>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

@@ -1,583 +1,159 @@
-// ===================================================
-// CodeShield.jsx — صفحة درع الكود (Code Shield)
-// شات بوت ذكي متخصص في تصحيح الكود ومشاكل CSS
-// المسار: frontend/src/pages/CodeShield.jsx
-// ===================================================
-
 import React, { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import Navbar from '../components/layout/Navbar.jsx'
-import { aiService } from '../services/aiService.js'
+import { supabase } from '../services/supabase.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
 
-// ─── الرسائل الترحيبية ───
+const QUICK = {
+  ar: ['لماذا لا يعمل Flexbox على الموبايل؟','كيف أصلح z-index لا يعمل؟','مشكلة في querySelector','كيف أجعل الصورة Responsive؟'],
+  en: ['Why is Flexbox not working on mobile?','How to fix z-index issue?','querySelector returning null','How to make images responsive?'],
+}
+
 const WELCOME = {
-  ar: `مرحباً! أنا **درع الكود** من BountyFetch 🛡️
-
-أستطيع مساعدتك في:
-• **تصحيح أخطاء الكود** — JavaScript, HTML, CSS
-• **إصلاح مشاكل Responsive** وتوافق الموبايل
-• **شرح الكود** بطريقة بسيطة وواضحة
-• **تحسين جودة الكود** قبل تسليمه للعميل
-
-الصق كودك أو اشرح المشكلة وسأساعدك فوراً!`,
-
-  en: `Hello! I'm **Code Shield** by BountyFetch 🛡️
-
-I can help you with:
-• **Code debugging** — JavaScript, HTML, CSS
-• **Responsive issues** and mobile compatibility
-• **Code explanation** in simple terms
-• **Code quality improvements** before client delivery
-
-Paste your code or describe the problem and I'll help immediately!`
+  ar: '**Code Shield** جاهز 🛡️\n\nأساعدك في:\n• تصحيح أخطاء HTML/CSS/JavaScript\n• إصلاح مشاكل Responsive Design\n• تحسين الكود قبل التسليم للعميل\n\nالصق كودك أو اشرح المشكلة!',
+  en: '**Code Shield** ready 🛡️\n\nI help you with:\n• HTML/CSS/JavaScript debugging\n• Responsive Design fixes\n• Code quality before delivery\n\nPaste your code or describe the issue!',
 }
 
-// ─── أمثلة أسئلة سريعة ───
-const QUICK_PROMPTS = {
-  ar: [
-    'لماذا لا يعمل Flexbox على الموبايل؟',
-    'كيف أصلح z-index لا يعمل؟',
-    'مشكلة في querySelector لا يجد العنصر',
-    'كيف أجعل الصورة Responsive بشكل صحيح؟',
-  ],
-  en: [
-    'Why is my Flexbox not working on mobile?',
-    'How to fix z-index not working?',
-    'querySelector returning null issue',
-    'How to make images properly responsive?',
-  ],
-}
-
-export default function CodeShield() {
-  const { isRTL, language } = useLanguage()
-
-  const [messages, setMessages]   = useState([
-    { role: 'assistant', content: WELCOME[language] || WELCOME.ar, isWelcome: true }
-  ])
-  const [input, setInput]         = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
-  const messagesEndRef = useRef(null)
-  const textareaRef    = useRef(null)
-
-  // تمرير للأسفل عند كل رسالة جديدة
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
-
-  // إرسال الرسالة
-  const sendMessage = async (text = input) => {
-    const trimmed = text.trim()
-    if (!trimmed || isLoading) return
-
-    const userMsg = { role: 'user', content: trimmed }
-    setMessages(prev => [...prev, userMsg])
-    setInput('')
-    setIsLoading(true)
-
-    // إعادة ضبط ارتفاع الـ textarea
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-
-    try {
-      const history = messages
-        .filter(m => !m.isWelcome)
-        .map(m => ({ role: m.role, content: m.content }))
-
-      const res = await aiService.sendChatMessage(trimmed, history)
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }])
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: isRTL
-          ? '⚠️ حدث خطأ في الاتصال. تحقق من الشبكة وحاول مجدداً.'
-          : '⚠️ Connection error. Check your network and try again.',
-        isError: true,
-      }])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Enter للإرسال، Shift+Enter لسطر جديد
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
-  }
-
-  // ضبط ارتفاع الـ textarea تلقائياً
-  const handleInput = (e) => {
-    setInput(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-  }
-
-  const clearChat = () => {
-    setMessages([{ role: 'assistant', content: WELCOME[language] || WELCOME.ar, isWelcome: true }])
-  }
-
+function MsgContent({ text }) {
+  const parts = text.split(/(```[\s\S]*?```)/g)
   return (
-    <div className="cs-root" dir={isRTL ? 'rtl' : 'ltr'}>
-      <Navbar />
-
-      <div className="cs-layout">
-
-        {/* ══════════════════════════════
-            اللوحة الجانبية — معلومات
-        ══════════════════════════════ */}
-        <aside className="cs-sidebar">
-          <div className="cs-sidebar-inner">
-
-            <div className="cs-shield-logo">
-              <span className="cs-shield-icon">🛡️</span>
-              <div>
-                <p className="cs-shield-title">Code Shield</p>
-                <p className="cs-shield-sub">by BountyFetch</p>
-              </div>
-            </div>
-
-            <div className="cs-capabilities">
-              <p className="cs-cap-label">{isRTL ? 'القدرات' : 'Capabilities'}</p>
-              {[
-                { icon: '🐛', ar: 'تصحيح الأخطاء', en: 'Bug Debugging' },
-                { icon: '📱', ar: 'إصلاح Responsive', en: 'Responsive Fixes' },
-                { icon: '💅', ar: 'تحسين CSS', en: 'CSS Improvements' },
-                { icon: '⚡', ar: 'تحسين الأداء', en: 'Performance Tips' },
-                { icon: '📖', ar: 'شرح الكود', en: 'Code Explanation' },
-              ].map((c, i) => (
-                <div key={i} className="cs-cap-item">
-                  <span>{c.icon}</span>
-                  <span>{isRTL ? c.ar : c.en}</span>
-                </div>
-              ))}
-            </div>
-
-            <button className="cs-clear-btn" onClick={clearChat}>
-              {isRTL ? '🗑 مسح المحادثة' : '🗑 Clear Chat'}
-            </button>
-          </div>
-        </aside>
-
-        {/* ══════════════════════════════
-            منطقة الشات الرئيسية
-        ══════════════════════════════ */}
-        <div className="cs-chat-area">
-
-          {/* ─── الرسائل ─── */}
-          <div className="cs-messages">
-            <AnimatePresence initial={false}>
-              {messages.map((msg, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: .25 }}
-                  className={`cs-msg ${msg.role === 'user' ? 'cs-msg-user' : 'cs-msg-bot'}`}
-                >
-                  {/* أيقونة المرسل */}
-                  {msg.role === 'assistant' && (
-                    <div className="cs-bot-avatar">🛡️</div>
-                  )}
-
-                  {/* محتوى الرسالة */}
-                  <div className={`cs-bubble ${msg.role === 'user' ? 'cs-bubble-user' : 'cs-bubble-bot'} ${msg.isError ? 'cs-bubble-error' : ''}`}>
-                    <MessageContent content={msg.content} />
-                  </div>
-
-                  {msg.role === 'user' && (
-                    <div className="cs-user-avatar">👤</div>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {/* مؤشر الكتابة */}
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="cs-msg cs-msg-bot"
-              >
-                <div className="cs-bot-avatar">🛡️</div>
-                <div className="cs-bubble cs-bubble-bot">
-                  <div className="cs-typing">
-                    <span /><span /><span />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* ─── الأسئلة السريعة ─── */}
-          {messages.length <= 1 && (
-            <div className="cs-quick-prompts">
-              <p className="cs-quick-label">
-                {isRTL ? 'أسئلة شائعة:' : 'Common questions:'}
-              </p>
-              <div className="cs-quick-list">
-                {(QUICK_PROMPTS[language] || QUICK_PROMPTS.ar).map((q, i) => (
-                  <button
-                    key={i}
-                    className="cs-quick-btn"
-                    onClick={() => sendMessage(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── منطقة الإدخال ─── */}
-          <div className="cs-input-area">
-            <div className="cs-input-box">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInput}
-                onKeyDown={handleKeyDown}
-                placeholder={isRTL
-                  ? 'الصق كودك أو اشرح المشكلة... (Enter للإرسال، Shift+Enter لسطر جديد)'
-                  : 'Paste your code or describe the issue... (Enter to send, Shift+Enter for new line)'}
-                rows={1}
-                className="cs-textarea"
-                disabled={isLoading}
-              />
-              <button
-                className="cs-send-btn"
-                onClick={() => sendMessage()}
-                disabled={!input.trim() || isLoading}
-                aria-label={isRTL ? 'إرسال' : 'Send'}
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
-              </button>
-            </div>
-            <p className="cs-input-hint">
-              {isRTL
-                ? 'Enter للإرسال · Shift+Enter لسطر جديد · يدعم الكود والنص'
-                : 'Enter to send · Shift+Enter for new line · Supports code & text'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <style>{`
-        .cs-root {
-          --cs-bg:      #020617;
-          --cs-surface: #0f172a;
-          --cs-panel:   #0d1526;
-          --cs-border:  #1e293b;
-          --cs-bl:      #334155;
-          --cs-royal:   #2563eb;
-          --cs-rlt:     #3b82f6;
-          --cs-sky:     #0ea5e9;
-          --cs-text:    #f1f5f9;
-          --cs-muted:   #94a3b8;
-          --cs-subtle:  #475569;
-
-          min-height: 100vh;
-          background: var(--cs-bg);
-          color: var(--cs-text);
-          font-family: 'DM Sans','Tajawal',system-ui,sans-serif;
-          display: flex;
-          flex-direction: column;
+    <div>
+      {parts.map((p, i) => {
+        if (p.startsWith('```') && p.endsWith('```')) {
+          const lines = p.slice(3,-3).split('\n')
+          const lang  = lines[0].trim()
+          const code  = lines.slice(1).join('\n').trim()
+          return (
+            <pre key={i} style={{ background:'#1E293B', border:'1px solid #334155', borderRadius:8, padding:'.75rem 1rem', overflow:'auto', fontSize:'.78rem', fontFamily:'JetBrains Mono,monospace', color:'#E2E8F0', margin:'.5rem 0', lineHeight:1.7 }}>
+              {lang && <span style={{ color:'#64748B', fontSize:'.62rem', display:'block', marginBottom:'.3rem' }}>{lang}</span>}
+              <code>{code || p.slice(3,-3)}</code>
+            </pre>
+          )
         }
-
-        .cs-layout {
-          flex: 1;
-          display: flex;
-          height: calc(100vh - 64px);
-          overflow: hidden;
-        }
-
-        /* ── Sidebar ── */
-        .cs-sidebar {
-          width: 220px;
-          flex-shrink: 0;
-          border-inline-end: 1px solid var(--cs-border);
-          background: var(--cs-panel);
-          overflow-y: auto;
-        }
-        @media (max-width: 768px) { .cs-sidebar { display: none; } }
-        .cs-sidebar-inner {
-          padding: 1.5rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          height: 100%;
-        }
-
-        .cs-shield-logo {
-          display: flex; align-items: center; gap: .65rem;
-        }
-        .cs-shield-icon { font-size: 1.75rem; }
-        .cs-shield-title {
-          font-family: 'Syne',system-ui,sans-serif;
-          font-size: .95rem; font-weight: 800;
-          color: var(--cs-rlt); margin: 0;
-        }
-        .cs-shield-sub { font-size: .68rem; color: var(--cs-subtle); margin: 0; }
-
-        .cs-capabilities { display: flex; flex-direction: column; gap: .85rem; }
-        .cs-cap-label {
-          font-size: .65rem; font-weight: 700;
-          letter-spacing: .1em; text-transform: uppercase;
-          color: var(--cs-subtle);
-        }
-        .cs-cap-item {
-          display: flex; align-items: center; gap: .55rem;
-          font-size: .78rem; color: var(--cs-muted);
-        }
-
-        .cs-clear-btn {
-          font-size: .78rem; font-weight: 600;
-          color: var(--cs-subtle);
-          background: none;
-          border: 1px solid var(--cs-border);
-          border-radius: 8px;
-          padding: .5rem .75rem;
-          cursor: pointer;
-          transition: color .2s, border-color .2s;
-          text-align: start;
-          margin-top: auto;
-        }
-        .cs-clear-btn:hover { color: #f87171; border-color: rgba(248,113,113,.3); }
-
-        /* ── Chat Area ── */
-        .cs-chat-area {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-        }
-
-        /* الرسائل */
-        .cs-messages {
-          flex: 1;
-          overflow-y: auto;
-          padding: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        .cs-messages::-webkit-scrollbar { width: 4px; }
-        .cs-messages::-webkit-scrollbar-thumb {
-          background: var(--cs-border); border-radius: 2px;
-        }
-
-        .cs-msg {
-          display: flex;
-          align-items: flex-end;
-          gap: .6rem;
-          max-width: 85%;
-        }
-        .cs-msg-user {
-          align-self: flex-end;
-          flex-direction: row-reverse;
-        }
-        .cs-msg-bot { align-self: flex-start; }
-
-        .cs-bot-avatar, .cs-user-avatar {
-          width: 30px; height: 30px;
-          border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 1rem;
-          flex-shrink: 0;
-        }
-        .cs-bot-avatar {
-          background: rgba(37,99,235,.15);
-          border: 1px solid rgba(37,99,235,.25);
-        }
-        .cs-user-avatar {
-          background: rgba(14,165,233,.1);
-          border: 1px solid rgba(14,165,233,.2);
-        }
-
-        .cs-bubble {
-          padding: .85rem 1.1rem;
-          border-radius: 16px;
-          font-size: .875rem;
-          line-height: 1.7;
-          max-width: 100%;
-          word-break: break-word;
-        }
-        .cs-bubble-user {
-          background: linear-gradient(135deg, #2563eb, #0ea5e9);
-          color: #fff;
-          border-bottom-inline-end-radius: 4px;
-        }
-        .cs-bubble-bot {
-          background: var(--cs-surface);
-          border: 1px solid var(--cs-border);
-          color: var(--cs-text);
-          border-bottom-inline-start-radius: 4px;
-        }
-        .cs-bubble-error {
-          background: rgba(248,113,113,.08) !important;
-          border-color: rgba(248,113,113,.25) !important;
-          color: #fca5a5 !important;
-        }
-
-        /* مؤشر الكتابة */
-        .cs-typing {
-          display: flex; gap: 4px; padding: .15rem 0;
-        }
-        .cs-typing span {
-          width: 7px; height: 7px;
-          border-radius: 50%;
-          background: var(--cs-rlt);
-          animation: csTyping 1.2s ease-in-out infinite;
-        }
-        .cs-typing span:nth-child(2) { animation-delay: .2s; }
-        .cs-typing span:nth-child(3) { animation-delay: .4s; }
-        @keyframes csTyping {
-          0%,80%,100% { transform: scale(.6); opacity: .35; }
-          40%           { transform: scale(1); opacity: 1; }
-        }
-
-        /* الأسئلة السريعة */
-        .cs-quick-prompts {
-          padding: 0 1.5rem 1rem;
-          display: flex;
-          flex-direction: column;
-          gap: .6rem;
-        }
-        .cs-quick-label {
-          font-size: .72rem; font-weight: 600;
-          letter-spacing: .06em; text-transform: uppercase;
-          color: var(--cs-subtle); margin: 0;
-        }
-        .cs-quick-list {
-          display: flex; flex-wrap: wrap; gap: .4rem;
-        }
-        .cs-quick-btn {
-          font-size: .78rem; font-weight: 500;
-          padding: .38rem .85rem;
-          border-radius: 99px;
-          border: 1px solid var(--cs-border);
-          background: transparent;
-          color: var(--cs-muted);
-          cursor: pointer;
-          transition: all .2s;
-          text-align: start;
-        }
-        .cs-quick-btn:hover {
-          border-color: var(--cs-rlt);
-          color: var(--cs-text);
-          background: rgba(59,130,246,.06);
-        }
-
-        /* منطقة الإدخال */
-        .cs-input-area {
-          padding: 1rem 1.5rem 1.25rem;
-          border-top: 1px solid var(--cs-border);
-          display: flex;
-          flex-direction: column;
-          gap: .5rem;
-          background: rgba(15,23,42,.6);
-          backdrop-filter: blur(10px);
-        }
-        .cs-input-box {
-          display: flex;
-          align-items: flex-end;
-          gap: .6rem;
-          background: var(--cs-surface);
-          border: 1px solid var(--cs-border);
-          border-radius: 14px;
-          padding: .5rem .5rem .5rem .9rem;
-          transition: border-color .2s;
-        }
-        .cs-input-box:focus-within { border-color: rgba(59,130,246,.5); }
-        .cs-textarea {
-          flex: 1;
-          background: none;
-          border: none;
-          outline: none;
-          color: var(--cs-text);
-          font-size: .875rem;
-          line-height: 1.6;
-          resize: none;
-          font-family: inherit;
-          max-height: 160px;
-          padding: .4rem 0;
-        }
-        .cs-textarea::placeholder { color: var(--cs-subtle); }
-        .cs-textarea:disabled { opacity: .5; }
-        .cs-send-btn {
-          width: 38px; height: 38px;
-          border-radius: 10px;
-          border: none;
-          background: linear-gradient(135deg, var(--cs-royal), var(--cs-sky));
-          color: #fff;
-          cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
-          transition: all .2s;
-        }
-        .cs-send-btn:hover:not(:disabled) {
-          box-shadow: 0 4px 15px rgba(37,99,235,.4);
-          transform: translateY(-1px);
-        }
-        .cs-send-btn:disabled { opacity: .4; cursor: not-allowed; }
-
-        .cs-input-hint {
-          font-size: .68rem;
-          color: var(--cs-subtle);
-          margin: 0;
-          text-align: center;
-        }
-      `}</style>
+        return (
+          <span key={i} style={{ whiteSpace:'pre-wrap' }} dangerouslySetInnerHTML={{ __html: p
+            .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+            .replace(/`([^`]+)`/g,'<code style="background:#F1F5F9;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:.85em;color:#002D62">$1</code>')
+          }} />
+        )
+      })}
     </div>
   )
 }
 
-// ─── عرض محتوى الرسالة مع دعم الكود ───
-function MessageContent({ content }) {
-  // تقسيم الكود من النص العادي
-  const parts = content.split(/(```[\s\S]*?```)/g)
+export default function CodeShield() {
+  const { isRTL, language } = useLanguage()
+  const endRef   = useRef(null)
+  const textRef  = useRef(null)
+
+  const [msgs, setMsgs]       = useState([{ role:'assistant', content:WELCOME[language]||WELCOME.ar, isWelcome:true }])
+  const [input, setInput]     = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior:'smooth' }) }, [msgs, loading])
+
+  const send = async (text = input) => {
+    const t = text.trim()
+    if (!t || loading) return
+    setMsgs(p => [...p, { role:'user', content:t }])
+    setInput('')
+    if (textRef.current) textRef.current.style.height = 'auto'
+    setLoading(true)
+
+    try {
+      const history = msgs.filter(m=>!m.isWelcome).map(m=>({ role:m.role, content:m.content }))
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/ai/chat`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', ...(localStorage.getItem('sb-session') ? { Authorization: `Bearer ${JSON.parse(localStorage.getItem('sb-session'))?.access_token}` } : {}) },
+        body: JSON.stringify({ message:t, history }),
+      })
+      const data = await res.json()
+      setMsgs(p => [...p, { role:'assistant', content: data.reply || data.message || (isRTL?'حدث خطأ':'Error occurred') }])
+    } catch {
+      const fallback = { ar:'⚠️ تعذر الاتصال بالـ AI. تأكد من تشغيل Backend وإضافة GEMINI_API_KEY في .env', en:'⚠️ Could not connect to AI. Make sure Backend is running and GEMINI_API_KEY is set.' }
+      setMsgs(p => [...p, { role:'assistant', content:fallback[language]||fallback.en, isError:true }])
+    } finally { setLoading(false) }
+  }
 
   return (
-    <div>
-      {parts.map((part, i) => {
-        if (part.startsWith('```') && part.endsWith('```')) {
-          const lines    = part.slice(3, -3).split('\n')
-          const lang     = lines[0].trim()
-          const codeBody = lines.slice(1).join('\n').trim()
-          return (
-            <pre key={i} style={{
-              background: '#020617',
-              border: '1px solid #1e293b',
-              borderRadius: '10px',
-              padding: '.85rem 1rem',
-              overflowX: 'auto',
-              fontSize: '.78rem',
-              lineHeight: 1.7,
-              fontFamily: "'JetBrains Mono','Fira Code',monospace",
-              color: '#e2e8f0',
-              margin: '.5rem 0',
-            }}>
-              {lang && <span style={{ color: '#64748b', fontSize: '.65rem', display: 'block', marginBottom: '.4rem' }}>{lang}</span>}
-              <code>{codeBody || part.slice(3, -3)}</code>
-            </pre>
-          )
-        }
-        // نص عادي مع دعم **bold**
-        return (
-          <span key={i} style={{ whiteSpace: 'pre-wrap' }}
-            dangerouslySetInnerHTML={{
-              __html: part
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:.85em">$1</code>')
-            }}
-          />
-        )
-      })}
+    <div style={{ background:'#F4F6F9', minHeight:'100vh', display:'flex', flexDirection:'column', overflowX:'hidden' }} dir={isRTL?'rtl':'ltr'}>
+      <Navbar />
+      <div style={{ flex:1, maxWidth:860, width:'100%', margin:'0 auto', padding:'1.5rem', display:'flex', flexDirection:'column', height:'calc(100vh - 64px)' }}>
+        <div style={{ flex:1, background:'#fff', border:'1px solid #D8DEE9', borderRadius:16, boxShadow:'0 1px 4px rgba(0,45,98,.06)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+
+          {/* Header */}
+          <div style={{ padding:'1rem 1.5rem', borderBottom:'1px solid #D8DEE9', display:'flex', alignItems:'center', gap:'.75rem' }}>
+            <div style={{ width:38, height:38, borderRadius:9, background:'#002D62', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.1rem', flexShrink:0 }}>🛡️</div>
+            <div style={{ flex:1 }}>
+              <h2 style={{ fontSize:'.95rem', fontWeight:800, color:'#002D62', margin:0 }}>Code Shield</h2>
+              <p style={{ fontSize:'.72rem', color:'#5A6478', margin:0 }}>{isRTL?'مساعد برمجي متخصص — BountyFetch':'Specialized coding assistant — BountyFetch'}</p>
+            </div>
+            <button onClick={()=>setMsgs([{ role:'assistant', content:WELCOME[language]||WELCOME.ar, isWelcome:true }])}
+              style={{ fontSize:'.75rem', fontWeight:600, color:'#5A6478', background:'none', border:'1px solid #D8DEE9', borderRadius:7, padding:'.3rem .7rem', cursor:'pointer' }}>
+              {isRTL?'🗑 مسح':'🗑 Clear'}
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:'auto', padding:'1.25rem 1.5rem', display:'flex', flexDirection:'column', gap:'.85rem' }}>
+            {msgs.map((m,i) => {
+              const isUser = m.role==='user'
+              return (
+                <div key={i} style={{ display:'flex', gap:'.5rem', alignItems:'flex-end', flexDirection:isUser?'row-reverse':'row' }}>
+                  {!isUser && <div style={{ width:28, height:28, borderRadius:'50%', background:'#002D62', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.85rem', flexShrink:0 }}>🛡️</div>}
+                  <div style={{ maxWidth:'80%', padding:'.8rem 1rem', borderRadius:isUser?'14px 14px 4px 14px':'14px 14px 14px 4px', fontSize:'.875rem', lineHeight:1.7,
+                    background:isUser?'#002D62':m.isError?'#FEF2F2':'#F8FAFC',
+                    color:isUser?'#fff':m.isError?'#DC3545':'#1A1A2E',
+                    border:`1px solid ${isUser?'#002D62':m.isError?'#FECACA':'#E2E8F0'}`,
+                  }}>
+                    <MsgContent text={m.content} />
+                  </div>
+                </div>
+              )
+            })}
+            {loading && (
+              <div style={{ display:'flex', gap:'.5rem', alignItems:'flex-end' }}>
+                <div style={{ width:28, height:28, borderRadius:'50%', background:'#002D62', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.85rem' }}>🛡️</div>
+                <div style={{ padding:'.75rem 1rem', background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:'14px 14px 14px 4px', display:'flex', gap:'.3rem' }}>
+                  {[0,1,2].map(i=><span key={i} style={{ width:7, height:7, borderRadius:'50%', background:'#002D62', display:'inline-block', animation:`dot 1.2s ease-in-out ${i*.2}s infinite` }} />)}
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* Quick prompts */}
+          {msgs.length <= 1 && (
+            <div style={{ padding:'0 1.5rem .75rem', display:'flex', flexWrap:'wrap', gap:'.35rem' }}>
+              {(QUICK[language]||QUICK.en).map((q,i) => (
+                <button key={i} onClick={()=>send(q)}
+                  style={{ fontSize:'.75rem', fontWeight:500, padding:'.3rem .75rem', borderRadius:99, border:'1px solid #D8DEE9', background:'transparent', color:'#5A6478', cursor:'pointer', transition:'all .15s' }}
+                  onMouseEnter={e=>{ e.currentTarget.style.borderColor='#002D62'; e.currentTarget.style.color='#002D62' }}
+                  onMouseLeave={e=>{ e.currentTarget.style.borderColor='#D8DEE9'; e.currentTarget.style.color='#5A6478' }}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{ padding:'1rem 1.5rem', borderTop:'1px solid #D8DEE9', display:'flex', gap:'.6rem', alignItems:'flex-end', background:'rgba(248,250,252,.8)', backdropFilter:'blur(8px)' }}>
+            <textarea ref={textRef} value={input}
+              onChange={e=>{ setInput(e.target.value); e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,140)+'px' }}
+              onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send() } }}
+              placeholder={isRTL?'الصق كودك أو اشرح المشكلة... (Enter للإرسال)':'Paste code or describe issue... (Enter to send)'}
+              rows={1} disabled={loading}
+              style={{ flex:1, padding:'.62rem .9rem', border:'1.5px solid #D8DEE9', borderRadius:10, fontSize:'.875rem', background:'#fff', resize:'none', outline:'none', fontFamily:'inherit', maxHeight:140, transition:'border-color .15s' }}
+              onFocus={e=>e.target.style.borderColor='#002D62'} onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+            />
+            <button onClick={()=>send()} disabled={!input.trim()||loading}
+              style={{ width:40, height:40, borderRadius:10, background:'#002D62', color:'#fff', border:'none', cursor:input.trim()&&!loading?'pointer':'not-allowed', opacity:input.trim()&&!loading?1:.45, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
+              <svg viewBox="0 0 20 20" fill="currentColor" width="17" height="17"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes dot{0%,80%,100%{transform:scale(.6);opacity:.35}40%{transform:scale(1);opacity:1}}`}</style>
     </div>
   )
 }
