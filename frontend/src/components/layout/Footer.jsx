@@ -1,4 +1,5 @@
 // ===================================================
+<<<<<<< HEAD
 // Footer.jsx — تذييل BountyFetch الاحترافي
 // براند تجاري 100% — بدون أي إشارات للدراسة
 // المسار: frontend/src/components/layout/Footer.jsx
@@ -191,3 +192,20 @@ export default function Footer() {
     </footer>
   )
 }
+=======
+// Footer.jsx - تذييل الصفحة البسيط
+// ===================================================
+import React from 'react'
+
+function Footer() {
+  return (
+    <footer className="border-t border-brand-border py-6 text-center">
+      <p className="text-gray-600 text-sm">
+        صُنع بـ ❤️ كمشروع تخرج احترافي — {new Date().getFullYear()}
+      </p>
+    </footer>
+  )
+}
+
+export default Footer
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

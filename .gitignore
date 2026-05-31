@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ===================================================
 # .gitignore — ملفات يجب ألا تُرفع على GitHub
 # ===================================================
@@ -41,3 +42,24 @@ Thumbs.db
 # Cache
 .cache/
 .parcel-cache/
+=======
+# البيئات والإعدادات الخاصة
+node_modules/
+.env
+.env.local
+.env.production
+
+# ملفات البناء
+dist/
+build/
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# ملفات VS Code
+.vscode/settings.json
+
+# Prisma
+*.db
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

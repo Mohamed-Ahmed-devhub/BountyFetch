@@ -1,4 +1,5 @@
 // ===================================================
+<<<<<<< HEAD
 // redis.js — إعداد ذكي لـ Redis (يتخطى الاتصال إذا تم تعطيله)
 // المسار: backend/src/config/redis.js
 // ===================================================
@@ -76,3 +77,15 @@ async function cacheDel(key) {
 }
 
 module.exports = { redis, redisSub, cacheGet, cacheSet, cacheDel }
+=======
+// redis.js - إعداد اتصال Redis للـ Queue System
+// ===================================================
+const Redis = require('ioredis')
+
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+
+redis.on('connect', () => console.log('✅ متصل بـ Redis'))
+redis.on('error',   (err) => console.error('❌ خطأ Redis:', err))
+
+module.exports = redis
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

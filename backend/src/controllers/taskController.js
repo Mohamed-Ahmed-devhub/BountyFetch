@@ -1,4 +1,5 @@
 // ===================================================
+<<<<<<< HEAD
 // taskController.js — Pillar 2: Stats API + Pillar 7: Redis Cache
 // المسار: backend/src/controllers/taskController.js
 // ===================================================
@@ -16,16 +17,32 @@ exports.getTasks = async (req, res, next) => {
     // محاولة الـ cache أولاً
     const cached = await cacheGet(cacheKey)
     if (cached) return res.json({ tasks: cached, cached: true })
+=======
+// taskController.js - جلب وإدارة المهام
+// ===================================================
+const { prisma } = require('../config/database')
+
+// جلب المهام مع الفلترة
+exports.getTasks = async (req, res, next) => {
+  try {
+    const { source, skills } = req.query
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 
     const where = {}
     if (source && source !== 'all') where.source = source
     if (skills) {
+<<<<<<< HEAD
       const list   = Array.isArray(skills) ? skills : [skills]
       where.skills = { hasSome: list }
+=======
+      const skillList = Array.isArray(skills) ? skills : [skills]
+      where.skills = { hasSome: skillList } // Prisma: هل المصفوفة تحتوي أي من المهارات
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
     }
 
     const tasks = await prisma.task.findMany({
       where,
+<<<<<<< HEAD
       orderBy: { postedAt: 'desc' },
       take:    60,
     })
@@ -53,6 +70,30 @@ exports.getTaskById = async (req, res, next) => {
 }
 
 // ── حفظ مهمة ──
+=======
+      orderBy: { postedAt: 'desc' }, // الأحدث أولاً
+      take: 50, // حد أقصى 50 مهمة
+    })
+
+    res.json({ tasks })
+  } catch (error) {
+    next(error)
+  }
+}
+
+// جلب مهمة واحدة بالـ ID
+exports.getTaskById = async (req, res, next) => {
+  try {
+    const task = await prisma.task.findUnique({ where: { id: req.params.id } })
+    if (!task) return res.status(404).json({ message: 'المهمة غير موجودة' })
+    res.json(task)
+  } catch (error) {
+    next(error)
+  }
+}
+
+// حفظ مهمة
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 exports.saveTask = async (req, res, next) => {
   try {
     await prisma.savedTask.upsert({
@@ -61,6 +102,7 @@ exports.saveTask = async (req, res, next) => {
       create: { userId: req.userId, taskId: req.params.id },
     })
     res.json({ message: 'تم حفظ المهمة' })
+<<<<<<< HEAD
   } catch (e) { next(e) }
 }
 
@@ -129,4 +171,9 @@ exports.getStats = async (req, res, next) => {
     await cacheSet(cacheKey, stats, 120) // Cache دقيقتان
     res.json(stats)
   } catch (e) { next(e) }
+=======
+  } catch (error) {
+    next(error)
+  }
+>>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 }
