@@ -1,264 +1,170 @@
-// ===================================================
-<<<<<<< HEAD
-// LandingPage.jsx — Pillar 2: Dynamic Stats (no hardcoded numbers)
-// المسار: frontend/src/pages/LandingPage.jsx
-// ===================================================
-
-import React, { useEffect, useRef, useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+// LandingPage.jsx — BountyFetch v3 — marketing + live stats
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext.jsx'
-import Navbar from '../components/layout/Navbar.jsx'
+import { taskService } from '../services/taskService.js'
 import Footer from '../components/layout/Footer.jsx'
-import api from '../services/api.js'
-
-const STATIC_STATS = [
-  { key: 'tasks',     value: '12,400+', ar: 'مهمة مرصودة يومياً',  en: 'Tasks Monitored Daily' },
-  { key: 'latency',   value: '340ms',   ar: 'متوسط زمن الاكتشاف',  en: 'Avg. Detection Latency' },
-  { key: 'accuracy',  value: '97%',     ar: 'دقة الفلترة بالذكاء', en: 'AI Filtering Accuracy' },
-  { key: 'sources',   value: '18+',     ar: 'مصدر بيانات مرتبط',   en: 'Connected Data Sources' },
-]
-
-const FEATURES = [
-  { icon:'📡', ar:'رادار الرصد الفوري', en:'Real-Time Bounty Radar', descAr:'محرك مراقبة متواصل يفحص آلاف المجتمعات التقنية في الوقت الفعلي ويصفّي الفرص بدقة تتجاوز 97% عبر نماذج ذكاء اصطناعي متخصصة.', descEn:'A continuous monitoring engine that scans thousands of tech communities in real time, filtering opportunities with 97%+ precision via specialized AI models.', accent:'#3b82f6' },
-  { icon:'🤖', ar:'مولّد العروض الذكي', en:'AI Proposal Engine', descAr:'يصيغ BountyFetch عروضاً تجارية احترافية مخصصة لكل فرصة معتمداً على سياق مهاراتك وسجل مشاريعك، بالعربية أو الإنجليزية في ثوانٍ.', descEn:'BountyFetch drafts tailored professional proposals for each opportunity, leveraging your skill context and project history — in Arabic or English within seconds.', accent:'#0ea5e9' },
-  { icon:'🛡️', ar:'درع الكود البرمجي', en:'Code Shield Assistant', descAr:'مساعد داخلي متخصص يحلل الكود الذي ترفعه، يكتشف الأخطاء، ويقترح إصلاحات دقيقة للـ CSS والـ JavaScript قبل التسليم.', descEn:'A built-in specialist that analyzes your submitted code, detects bugs, and proposes precise CSS/JS fixes before delivery — ensuring zero-defect quality.', accent:'#6366f1' },
-]
-
-const STEPS = [
-  { n:'01', ar:'أنشئ ملفك المهني', en:'Build Your Profile', dAr:'حدّد مهاراتك ومستوى خبرتك. يستخدم BountyFetch هذه البيانات لمعايرة الرادار بدقة عالية.', dEn:'Define your skills and experience level. BountyFetch uses this data to calibrate the radar with high precision.' },
-  { n:'02', ar:'دع الرادار يعمل', en:'Let the Radar Work', dAr:'الرادار يعمل على مدار الساعة، يرصد المجتمعات التقنية، ويصلك بإشعار فوري عند ظهور فرصة مطابقة.', dEn:'The radar operates around the clock, monitoring tech communities, alerting you instantly when a matching opportunity appears.' },
-  { n:'03', ar:'احتل الفرصة فوراً', en:'Seize the Opportunity', dAr:'بنقرة واحدة تحصل على عرض عمل جاهز ومساعدة في تنفيذ المهمة وتسليمها بجودة لا تُضاهى.', dEn:'One click gets you a ready-to-send proposal, execution assistance, and delivery at unmatched quality.' },
-]
 
 export default function LandingPage() {
-  const { isRTL, language } = useLanguage()
-
-  // Pillar 2: إحصائيات ديناميكية
-  const [liveStats, setLiveStats] = useState(null)
+  const { isRTL } = useLanguage()
+  const navigate  = useNavigate()
+  const [stats, setStats] = useState({ totalUsers: '2K+', totalTasks: '10K+', totalProposals: '5K+', onlineNow: 0 })
 
   useEffect(() => {
-    api.get('/tasks/stats').then(({ data }) => setLiveStats(data)).catch(() => {})
+    taskService.getStats()
+      .then(r => {
+        const d = r.data
+        setStats({
+          totalUsers:      d.totalUsers      > 999  ? `${(d.totalUsers/1000).toFixed(1)}K+`  : String(d.totalUsers),
+          totalTasks:      d.totalTasks      > 9999 ? `${(d.totalTasks/1000).toFixed(0)}K+`  : String(d.totalTasks),
+          totalProposals:  d.totalProposals  > 999  ? `${(d.totalProposals/1000).toFixed(1)}K+` : String(d.totalProposals),
+          onlineNow:       d.onlineNow,
+        })
+      })
+      .catch(() => {})
   }, [])
 
-  // Pillar 7: useMemo لتجنب إعادة الحساب
-  const heroStats = useMemo(() => {
-    if (!liveStats) return STATIC_STATS
-    return [
-      { key:'members', value: liveStats.totalUsers?.toLocaleString() || '—', ar:'مطوّر مسجّل', en:'Registered Developers' },
-      { key:'online',  value: liveStats.onlineNow  || '—',                   ar:'متصل الآن',   en:'Online Now' },
-      { key:'tasks',   value: liveStats.totalTasks?.toLocaleString() || '—', ar:'مهمة في قاعدة البيانات', en:'Tasks in Database' },
-      { key:'proposals', value: liveStats.totalProposals?.toLocaleString() || '—', ar:'بروبوزال مولَّد', en:'Proposals Generated' },
-    ]
-  }, [liveStats])
-
-  const observerRef = useRef(null)
+  // Intersection observer for scroll reveal
+  const sectionRefs = useRef([])
   useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('lp-vis') }),
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => e.target.classList.toggle('lp-vis', e.isIntersecting)),
       { threshold: 0.1 }
     )
-    document.querySelectorAll('.lp-rev').forEach(el => observerRef.current.observe(el))
-    return () => observerRef.current?.disconnect()
+    sectionRefs.current.forEach(el => el && observer.observe(el))
+    return () => observer.disconnect()
   }, [])
 
+  const ref = (i) => el => { sectionRefs.current[i] = el }
+
+  const FEATURES = isRTL ? [
+    { icon: '🎯', title: 'رادار المهام الفوري',   desc: 'تتبع المهام من Reddit وتيليجرام لحظة نشرها مع تصفية ذكية بالمهارات والميزانية.' },
+    { icon: '🤖', title: 'مقترحات بالذكاء الاصطناعي', desc: 'اضغط زراً واحداً — يكتب Gemini مقترحاً احترافياً باللغتين العربية والإنجليزية.' },
+    { icon: '🛡', title: 'Code Shield',         desc: 'مساعد برمجي متخصص يحلل كودك، يكشف الأخطاء ويقترح الحل مباشرة.' },
+    { icon: '💬', title: 'DevHub المجتمع',      desc: 'غرف دردشة حية للمطورين — شارك، اسأل، وتواصل مع مجتمعك.' },
+    { icon: '📊', title: 'لوحة الإحصائيات',     desc: 'إحصائيات حية: المستخدمون الفعّالون، الفرص المتاحة، المقترحات المرسلة.' },
+    { icon: '🌐', title: 'دعم كامل للعربية',    desc: 'واجهة RTL احترافية بالكامل — بُنيت للمطور العربي أولاً.' },
+  ] : [
+    { icon: '🎯', title: 'Live Task Radar',       desc: 'Track tasks from Reddit and Telegram the moment they post with smart skill & budget filtering.' },
+    { icon: '🤖', title: 'AI Proposals',          desc: 'One click — Gemini writes a professional proposal in both Arabic and English.' },
+    { icon: '🛡', title: 'Code Shield',           desc: 'Specialist AI assistant that reads your code, diagnoses bugs and suggests fixes inline.' },
+    { icon: '💬', title: 'DevHub Community',      desc: 'Live dev chat rooms — share, ask, and connect with your community.' },
+    { icon: '📊', title: 'Live Stats Dashboard',  desc: 'Real-time stats: active users, available opportunities, submitted proposals.' },
+    { icon: '🌐', title: 'Full Arabic RTL',       desc: 'A professionally RTL interface — built for the Arabic developer first.' },
+  ]
+
+  const STEPS = isRTL ? [
+    { n: '01', title: 'سجّل وحدد مهاراتك', desc: 'أضف مهاراتك وفي ثوانٍ يضبط الرادار نفسه لصالحك.' },
+    { n: '02', title: 'شاهد المهام تتدفق',  desc: 'الرادار الحي يجلب الفرص كلّ 10 دقائق تلقائياً.' },
+    { n: '03', title: 'ولّد مقترحك بضغطة', desc: 'اختر المهمة المناسبة وأرسل مقترحاً احترافياً بثانية.' },
+  ] : [
+    { n: '01', title: 'Sign up & set your skills',  desc: 'Add your skills and in seconds the radar tunes itself to your profile.' },
+    { n: '02', title: 'Watch tasks roll in',        desc: 'The live radar fetches opportunities every 10 minutes automatically.' },
+    { n: '03', title: 'Generate your proposal',    desc: 'Pick the right task and send a professional proposal in one click.' },
+  ]
+
+  const T = {
+    hero_pre:  isRTL ? '◈ الذكاء الاصطناعي في خدمة الفريلانس' : '◈ AI-Powered Freelance Intelligence',
+    hero_h1:   isRTL ? 'اصطد الفرص قبل المنافسين' : 'Hunt Opportunities Before Your Competition',
+    hero_sub:  isRTL ? 'رادار حي يجمع المهام من عشرات المصادر، ويكتب لك المقترح بالذكاء الاصطناعي في ثانية واحدة.'
+                     : 'A live radar pulling tasks from dozens of sources — AI writes your proposal in one second.',
+    cta_start: isRTL ? '← ابدأ الصيد مجاناً' : '← Start Hunting Free',
+    cta_demo:  isRTL ? 'شاهد كيف يعمل' : 'See How It Works',
+    features_h: isRTL ? 'كل ما تحتاجه في منصة واحدة' : 'Everything You Need in One Platform',
+    steps_h:   isRTL ? 'ثلاث خطوات للفرصة الأولى' : 'Three Steps to Your First Opportunity',
+    stats_h:   isRTL ? 'أرقام حقيقية، تنمو لحظة بلحظة' : 'Real Numbers, Growing Every Minute',
+    cta_h:     isRTL ? 'جاهز تصطاد أول فرصة؟' : 'Ready to hunt your first opportunity?',
+    cta_sub:   isRTL ? 'انضم الآن — مجاني تماماً' : 'Join now — completely free',
+    online:    isRTL ? 'مطوّر أونلاين الآن' : 'developers online now',
+  }
+
   return (
-    <div className="lp-root" dir={isRTL ? 'rtl' : 'ltr'} lang={language}>
-      <div className="lp-bg" aria-hidden="true">
-        <div className="lp-grid" />
-        <div className="lp-g1" /><div className="lp-g2" /><div className="lp-g3" />
-      </div>
+    <div className="lp-root" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Background */}
+      <div className="lp-bg"><div className="lp-grid"/><div className="lp-g1"/><div className="lp-g2"/><div className="lp-g3"/></div>
 
-      <Navbar />
+      {/* Nav */}
+      <nav className="lp-nav">
+        <span className="lp-logo">◈ BountyFetch</span>
+        <div className="lp-nav-btns">
+          <button className="lp-btn-ghost" onClick={() => navigate('/auth/login')}>{isRTL?'تسجيل دخول':'Sign In'}</button>
+          <button className="lp-btn-primary" onClick={() => navigate('/auth/register')}>{isRTL?'ابدأ مجاناً':'Get Started'}</button>
+        </div>
+      </nav>
 
-      {/* ══ HERO ══ */}
+      {/* Hero */}
       <section className="lp-hero">
-        <div className="lp-hero-content">
-          <div className="lp-tag lp-rev">
-            <span className="lp-dot" />
-            {isRTL ? 'منصة الذكاء الاصطناعي للفرص البرمجية' : 'AI-Powered Platform for Coding Opportunities'}
-          </div>
-          <h1 className="lp-h1 lp-rev">
-            <span className="lp-brand">BountyFetch</span><br />
-            {isRTL
-              ? <span className="lp-h1-sub">اصطد الفرص <em>قبل</em> غيرك</span>
-              : <span className="lp-h1-sub">Hunt Opportunities <em>Before</em> Anyone Else</span>}
-          </h1>
-          <p className="lp-lead lp-rev">
-            {isRTL
-              ? 'منصة ذكاء اصطناعي متخصصة تجمع مهام الفريلانس من Telegram وReddit وعشرات المصادر، تفلترها بدقة، وتولّد عروض عمل احترافية بلمح البصر.'
-              : 'A specialized AI platform aggregating freelance tasks from Telegram, Reddit, and dozens of sources — filtering with precision and generating winning proposals instantly.'}
-          </p>
-          <div className="lp-cta-row lp-rev">
-            <Link to="/register" className="lp-btn-primary">
-              {isRTL ? '🚀 ابدأ مجاناً' : '🚀 Get Started Free'}
-            </Link>
-            <Link to="/dashboard" className="lp-btn-ghost">
-              {isRTL ? 'استعرض الرادار ←' : 'View Radar →'}
-            </Link>
+        <div className="lp-hero-inner">
+          <span className="lp-badge">{T.hero_pre}</span>
+          <h1 className="lp-h1">{T.hero_h1}</h1>
+          <p className="lp-sub">{T.hero_sub}</p>
+          {stats.onlineNow > 0 && (
+            <p className="lp-online"><span className="lp-dot"/> {stats.onlineNow} {T.online}</p>
+          )}
+          <div className="lp-cta-row">
+            <button className="lp-btn-hero" onClick={() => navigate('/auth/register')}>{T.cta_start}</button>
+            <button className="lp-btn-ghost lp-btn-lg" onClick={() => navigate('/auth/login')}>{T.cta_demo}</button>
           </div>
         </div>
       </section>
 
-      {/* ══ STATS — Pillar 2: ديناميكية ══ */}
-      <section className="lp-stats">
-        <div className="lp-container">
-          <div className="lp-stats-grid">
-            {heroStats.map((s, i) => (
-              <div key={i} className="lp-stat-card lp-rev">
-                <span className="lp-stat-val">{s.value}</span>
-                <span className="lp-stat-lbl">{isRTL ? s.ar : s.en}</span>
-                {liveStats && <span className="lp-stat-live">🟢 {isRTL ? 'مباشر' : 'Live'}</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ FEATURES ══ */}
-      <section className="lp-features">
-        <div className="lp-container">
-          <div className="lp-section-head lp-rev">
-            <span className="lp-section-tag">{isRTL ? 'المميزات' : 'Features'}</span>
-            <h2 className="lp-section-title">{isRTL ? 'ثلاثة محركات، نتيجة واحدة' : 'Three Engines, One Outcome'}</h2>
-            <p className="lp-section-sub">{isRTL ? 'تقنية متكاملة صُمِّمت لتمنحك أقصى فرصة للفوز بكل مهمة.' : 'Integrated technology designed to maximize your chances of winning every task.'}</p>
-          </div>
-          <div className="lp-features-grid">
-            {FEATURES.map((f, i) => (
-              <div key={i} className="lp-feature-card lp-rev" style={{ '--accent': f.accent }}>
-                <div className="lp-feature-icon">{f.icon}</div>
-                <h3 className="lp-feature-title">{isRTL ? f.ar : f.en}</h3>
-                <p className="lp-feature-desc">{isRTL ? f.descAr : f.descEn}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ HOW IT WORKS ══ */}
-      <section className="lp-steps">
-        <div className="lp-container">
-          <div className="lp-section-head lp-rev">
-            <span className="lp-section-tag">{isRTL ? 'كيف يعمل' : 'How It Works'}</span>
-            <h2 className="lp-section-title">{isRTL ? 'ثلاث خطوات للفوز' : 'Three Steps to Win'}</h2>
-          </div>
-          <div className="lp-steps-grid">
-            {STEPS.map((s, i) => (
-              <div key={i} className="lp-step-card lp-rev">
-                <span className="lp-step-n">{s.n}</span>
-                <h3 className="lp-step-title">{isRTL ? s.ar : s.en}</h3>
-                <p className="lp-step-desc">{isRTL ? s.dAr : s.dEn}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ CTA ══ */}
-      <section className="lp-cta-section">
-        <div className="lp-container">
-          <div className="lp-cta-box lp-rev">
-            <h2 className="lp-cta-title">
-              {isRTL ? 'جاهز للانطلاق؟' : 'Ready to Launch?'}
-            </h2>
-            <p className="lp-cta-sub">
-              {isRTL ? 'انضم لآلاف المطورين الذين يصطادون الفرص كل يوم.' : 'Join thousands of developers hunting opportunities every day.'}
-            </p>
-            <Link to="/register" className="lp-btn-primary lp-btn-lg">
-              {isRTL ? '🚀 أنشئ حسابك الآن مجاناً' : '🚀 Create Your Free Account'}
-            </Link>
-          </div>
-=======
-// LandingPage.jsx - الصفحة الرئيسية للزوار
-// ===================================================
-import React from 'react'
-import { Link } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { motion } from 'framer-motion'
-import Navbar from '../components/layout/Navbar.jsx'
-import Footer from '../components/layout/Footer.jsx'
-import Button from '../components/ui/Button.jsx'
-import Card from '../components/ui/Card.jsx'
-
-const FEATURES = [
-  { icon: '📡', key: 'feature_radar' },
-  { icon: '✍️', key: 'feature_proposal' },
-  { icon: '🛡️', key: 'feature_shield' },
-]
-
-function LandingPage() {
-  const { t } = useTranslation()
-
-  return (
-    <div className="page-container">
-      <Navbar />
-      
-      {/* قسم البطل (Hero Section) */}
-      <section className="min-h-[85vh] flex items-center justify-center text-center px-4 relative overflow-hidden">
-        {/* تأثير الضوء الخلفي */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-cyan/5 rounded-full blur-3xl pointer-events-none" />
-        
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative z-10 max-w-3xl"
-        >
-          <div className="mb-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-brand-cyan/30 bg-brand-cyan/5 text-brand-cyan text-sm">
-            <span className="live-dot"></span>
-            الرادار يعمل الآن
-          </div>
-          
-          <h1 className="text-5xl sm:text-6xl font-black mb-6 leading-tight">
-            <span className="neon-text">{t('landing.hero_title')}</span>
-          </h1>
-          
-          <p className="text-xl text-gray-400 mb-10 leading-relaxed">
-            {t('landing.hero_subtitle')}
-          </p>
-          
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Link to="/register">
-              <Button variant="primary" size="lg">
-                🎯 {t('landing.cta_start')}
-              </Button>
-            </Link>
-            <Button variant="secondary" size="lg">
-              {t('landing.cta_learn')}
-            </Button>
-          </div>
-        </motion.div>
-      </section>
-
-      {/* قسم المميزات */}
-      <section className="py-20 px-4 max-w-5xl mx-auto">
-        <h2 className="text-3xl font-bold text-center mb-12">
-          {t('landing.features_title')}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {FEATURES.map((feature, i) => (
-            <motion.div
-              key={feature.key}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.15 }}
-            >
-              <Card glow={i === 0} className="h-full">
-                <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-lg font-bold text-brand-cyan mb-2">
-                  {t(`landing.${feature.key}`)}
-                </h3>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                  {t(`landing.${feature.key}_desc`)}
-                </p>
-              </Card>
-            </motion.div>
+      {/* Stats */}
+      <section className="lp-stats-section lp-rev" ref={ref(0)}>
+        <div className="lp-stats-grid">
+          {[
+            { n: stats.totalUsers,     l: isRTL?'عضو مسجّل':'Registered Members' },
+            { n: stats.totalTasks,     l: isRTL?'مهمة مجمّعة':'Tasks Aggregated' },
+            { n: stats.totalProposals, l: isRTL?'مقترح أُرسل':'Proposals Sent' },
+            { n: '10+',                l: isRTL?'مصدر متصل':'Sources Connected' },
+          ].map((s,i) => (
+            <div className="lp-stat-card" key={i}>
+              <span className="lp-stat-n">{s.n}</span>
+              <span className="lp-stat-l">{s.l}</span>
+            </div>
           ))}
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="lp-section lp-rev" ref={ref(1)}>
+        <h2 className="lp-section-h">{T.features_h}</h2>
+        <div className="lp-features-grid">
+          {FEATURES.map((f,i) => (
+            <div className="lp-feature-card" key={i}>
+              <span className="lp-feature-icon">{f.icon}</span>
+              <h3 className="lp-feature-title">{f.title}</h3>
+              <p className="lp-feature-desc">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Steps */}
+      <section className="lp-section lp-rev" ref={ref(2)}>
+        <h2 className="lp-section-h">{T.steps_h}</h2>
+        <div className="lp-steps-grid">
+          {STEPS.map((s,i) => (
+            <div className="lp-step-card" key={i}>
+              <span className="lp-step-n">{s.n}</span>
+              <h3 className="lp-step-title">{s.title}</h3>
+              <p className="lp-step-desc">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="lp-cta-section lp-rev" ref={ref(3)}>
+        <div className="lp-cta-inner">
+          <h2 className="lp-cta-title">{T.cta_h}</h2>
+          <p className="lp-cta-sub">{T.cta_sub}</p>
+          <div className="lp-cta-row">
+            <button className="lp-btn-hero" onClick={() => navigate('/auth/register')}>{T.cta_start}</button>
+          </div>
         </div>
       </section>
 
       <Footer />
-<<<<<<< HEAD
 
       <style>{`
         .lp-root { min-height:100vh; background:#020817; color:#f1f5f9; font-family:'Plus Jakarta Sans','Cairo',system-ui,sans-serif; overflow-x:hidden; }
@@ -267,84 +173,52 @@ function LandingPage() {
         .lp-g1 { position:absolute; top:-20%; left:-10%; width:600px; height:600px; background:radial-gradient(circle,rgba(37,99,235,.18) 0%,transparent 70%); border-radius:50%; }
         .lp-g2 { position:absolute; top:40%; right:-5%; width:500px; height:500px; background:radial-gradient(circle,rgba(99,102,241,.14) 0%,transparent 70%); border-radius:50%; }
         .lp-g3 { position:absolute; bottom:-10%; left:30%; width:400px; height:400px; background:radial-gradient(circle,rgba(14,165,233,.12) 0%,transparent 70%); border-radius:50%; }
-
-        .lp-container { max-width:1200px; margin:0 auto; padding:0 1.5rem; position:relative; z-index:1; }
-
-        /* Hero */
-        .lp-hero { padding:9rem 1.5rem 6rem; max-width:800px; margin:0 auto; text-align:center; position:relative; z-index:1; }
-        .lp-tag { display:inline-flex; align-items:center; gap:.5rem; padding:.4rem 1rem; border-radius:99px; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.25); color:#93c5fd; font-size:.78rem; font-weight:600; letter-spacing:.04em; margin-bottom:1.75rem; }
-        .lp-dot { width:6px; height:6px; border-radius:50%; background:#4ade80; box-shadow:0 0 8px #4ade80; animation:pulse 2s ease-in-out infinite; }
-        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
-        .lp-h1 { font-size:clamp(2.5rem,6vw,4.5rem); font-weight:900; line-height:1.1; letter-spacing:-.03em; margin:0 0 1.5rem; }
-        .lp-brand { background:linear-gradient(135deg,#60a5fa,#818cf8,#0ea5e9); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-        .lp-h1-sub { color:#e2e8f0; }
-        .lp-h1-sub em { color:#60a5fa; font-style:normal; }
-        .lp-lead { font-size:clamp(1rem,2vw,1.2rem); color:#94a3b8; line-height:1.75; margin:0 0 2.5rem; max-width:600px; margin-inline:auto; margin-bottom:2.5rem; }
+        .lp-nav { position:sticky; top:0; z-index:100; display:flex; justify-content:space-between; align-items:center; padding:.85rem 2rem; background:rgba(2,8,23,.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(99,102,241,.12); }
+        .lp-logo { font-size:1.2rem; font-weight:800; color:#6366f1; letter-spacing:-.02em; }
+        .lp-nav-btns { display:flex; gap:.6rem; }
+        .lp-btn-ghost { padding:.5rem 1.1rem; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:transparent; color:#94a3b8; font-size:.875rem; cursor:pointer; transition:all .15s; }
+        .lp-btn-ghost:hover { border-color:#6366f1; color:#f1f5f9; }
+        .lp-btn-primary { padding:.5rem 1.2rem; border-radius:8px; border:none; background:#6366f1; color:#fff; font-size:.875rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+        .lp-btn-primary:hover { opacity:.9; }
+        .lp-hero { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; min-height:85vh; padding:5rem 2rem; text-align:center; }
+        .lp-hero-inner { max-width:780px; }
+        .lp-badge { display:inline-block; padding:.35rem 1rem; border-radius:99px; background:rgba(99,102,241,.15); border:1px solid rgba(99,102,241,.3); color:#a5b4fc; font-size:.8rem; font-weight:600; margin-bottom:1.5rem; }
+        .lp-h1 { font-size:clamp(2.2rem,5vw,3.8rem); font-weight:900; line-height:1.1; background:linear-gradient(135deg,#f1f5f9 0%,#a5b4fc 60%,#38bdf8 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 0 1.2rem; }
+        .lp-sub { font-size:clamp(1rem,2vw,1.2rem); color:#94a3b8; line-height:1.7; margin:0 0 1.5rem; max-width:580px; margin-inline:auto; }
+        .lp-online { font-size:.85rem; color:#34d399; margin:0 0 1.5rem; display:flex; align-items:center; gap:.45rem; justify-content:center; }
+        .lp-dot { width:8px; height:8px; border-radius:50%; background:#34d399; display:inline-block; animation:pulse 2s infinite; }
         .lp-cta-row { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
-        .lp-btn-primary { display:inline-flex; align-items:center; gap:.5rem; padding:.85rem 2rem; border-radius:12px; background:linear-gradient(135deg,#2563eb,#4f46e5); color:#fff; font-weight:700; font-size:1rem; text-decoration:none; transition:all .2s; box-shadow:0 4px 20px rgba(37,99,235,.35); }
-        .lp-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(37,99,235,.5); }
-        .lp-btn-primary.lp-btn-lg { padding:1rem 2.5rem; font-size:1.1rem; }
-        .lp-btn-ghost { display:inline-flex; align-items:center; gap:.5rem; padding:.85rem 2rem; border-radius:12px; border:1px solid rgba(241,245,249,.15); color:#94a3b8; font-weight:600; font-size:1rem; text-decoration:none; transition:all .2s; }
-        .lp-btn-ghost:hover { border-color:rgba(241,245,249,.35); color:#f1f5f9; }
-
-        /* Stats */
-        .lp-stats { padding:4rem 0; position:relative; z-index:1; }
-        .lp-stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1.25rem; }
-        .lp-stat-card { background:rgba(30,41,59,.6); border:1px solid rgba(99,102,241,.15); border-radius:14px; padding:1.75rem 1.5rem; text-align:center; backdrop-filter:blur(8px); position:relative; }
-        .lp-stat-val { display:block; font-size:clamp(1.75rem,3vw,2.5rem); font-weight:900; background:linear-gradient(135deg,#60a5fa,#818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:.35rem; }
-        .lp-stat-lbl { display:block; font-size:.82rem; color:#64748b; font-weight:500; }
-        .lp-stat-live { position:absolute; top:.6rem; inset-inline-end:.6rem; font-size:.62rem; color:#4ade80; background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.2); border-radius:99px; padding:.15rem .45rem; }
-
-        /* Features */
-        .lp-features { padding:6rem 0; position:relative; z-index:1; }
-        .lp-section-head { text-align:center; margin-bottom:3rem; }
-        .lp-section-tag { display:inline-block; padding:.3rem .9rem; border-radius:99px; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.2); color:#93c5fd; font-size:.75rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.85rem; }
-        .lp-section-title { font-size:clamp(1.75rem,3.5vw,2.75rem); font-weight:800; color:#f1f5f9; margin:0 0 .75rem; letter-spacing:-.02em; }
-        .lp-section-sub { font-size:.95rem; color:#64748b; max-width:520px; margin:0 auto; line-height:1.7; }
-        .lp-features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; }
-        .lp-feature-card { background:rgba(15,23,42,.8); border:1px solid rgba(30,41,59,1); border-radius:18px; padding:2rem; position:relative; overflow:hidden; transition:border-color .25s,transform .25s; }
-        .lp-feature-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,var(--accent,#3b82f6) 0%,transparent 60%); opacity:0; transition:opacity .3s; border-radius:inherit; }
-        .lp-feature-card:hover { border-color:var(--accent,#3b82f6); transform:translateY(-4px); }
-        .lp-feature-card:hover::before { opacity:.06; }
-        .lp-feature-icon { font-size:2.25rem; margin-bottom:1.25rem; display:block; }
-        .lp-feature-title { font-size:1.15rem; font-weight:700; color:#f1f5f9; margin:0 0 .75rem; }
-        .lp-feature-desc { font-size:.875rem; color:#64748b; line-height:1.75; margin:0; }
-
-        /* Steps */
-        .lp-steps { padding:6rem 0; position:relative; z-index:1; }
-        .lp-steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; }
-        .lp-step-card { background:rgba(15,23,42,.6); border:1px solid rgba(30,41,59,1); border-radius:16px; padding:2rem; }
-        .lp-step-n { display:inline-block; font-size:.7rem; font-weight:800; letter-spacing:.08em; color:#60a5fa; background:rgba(37,99,235,.1); border:1px solid rgba(37,99,235,.2); border-radius:8px; padding:.25rem .6rem; margin-bottom:1rem; }
-        .lp-step-title { font-size:1.1rem; font-weight:700; color:#f1f5f9; margin:0 0 .75rem; }
-        .lp-step-desc { font-size:.875rem; color:#64748b; line-height:1.75; margin:0; }
-
-        /* CTA Section */
-        .lp-cta-section { padding:6rem 0; position:relative; z-index:1; }
-        .lp-cta-box { background:linear-gradient(135deg,rgba(37,99,235,.15),rgba(99,102,241,.1)); border:1px solid rgba(37,99,235,.25); border-radius:24px; padding:4rem 2rem; text-align:center; backdrop-filter:blur(8px); }
+        .lp-btn-hero { padding:.85rem 2rem; border-radius:10px; border:none; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; font-size:1rem; font-weight:700; cursor:pointer; transition:transform .15s,box-shadow .15s; box-shadow:0 4px 20px rgba(99,102,241,.4); }
+        .lp-btn-hero:hover { transform:translateY(-2px); box-shadow:0 6px 24px rgba(99,102,241,.5); }
+        .lp-btn-lg { font-size:1rem; padding:.85rem 2rem; }
+        .lp-stats-section { position:relative; z-index:1; padding:3rem 2rem; }
+        .lp-stats-grid { max-width:900px; margin:0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+        .lp-stat-card { background:rgba(255,255,255,.03); border:1px solid rgba(99,102,241,.15); border-radius:12px; padding:1.5rem; text-align:center; }
+        .lp-stat-n { display:block; font-size:2rem; font-weight:900; color:#6366f1; margin-bottom:.3rem; }
+        .lp-stat-l { font-size:.8rem; color:#64748b; font-weight:500; }
+        .lp-section { position:relative; z-index:1; padding:5rem 2rem; max-width:1100px; margin:0 auto; }
+        .lp-section-h { text-align:center; font-size:clamp(1.5rem,3vw,2.2rem); font-weight:800; color:#f1f5f9; margin:0 0 3rem; }
+        .lp-features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; }
+        .lp-feature-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:1.75rem; transition:border-color .2s,transform .2s; }
+        .lp-feature-card:hover { border-color:rgba(99,102,241,.4); transform:translateY(-3px); }
+        .lp-feature-icon { font-size:2rem; display:block; margin-bottom:.75rem; }
+        .lp-feature-title { font-size:1rem; font-weight:700; color:#e2e8f0; margin:0 0 .5rem; }
+        .lp-feature-desc { font-size:.875rem; color:#64748b; line-height:1.6; margin:0; }
+        .lp-steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; }
+        .lp-step-card { background:rgba(99,102,241,.06); border:1px solid rgba(99,102,241,.2); border-radius:14px; padding:2rem; text-align:center; }
+        .lp-step-n { display:block; font-size:2.5rem; font-weight:900; color:rgba(99,102,241,.4); margin-bottom:.5rem; }
+        .lp-step-title { font-size:1rem; font-weight:700; color:#e2e8f0; margin:0 0 .5rem; }
+        .lp-step-desc { font-size:.875rem; color:#64748b; line-height:1.6; margin:0; }
+        .lp-cta-section { position:relative; z-index:1; padding:6rem 2rem; }
+        .lp-cta-inner { max-width:600px; margin:0 auto; text-align:center; background:rgba(99,102,241,.08); border:1px solid rgba(99,102,241,.2); border-radius:20px; padding:3.5rem 2rem; }
         .lp-cta-title { font-size:clamp(1.75rem,3vw,2.5rem); font-weight:800; color:#f1f5f9; margin:0 0 .85rem; }
         .lp-cta-sub { font-size:1rem; color:#94a3b8; margin:0 0 2rem; }
-
-        /* Reveal */
         .lp-rev { opacity:0; transform:translateY(20px); transition:opacity .6s ease, transform .6s ease; }
         .lp-vis { opacity:1; transform:translateY(0); }
-
-        /* Responsive */
-        @media(max-width:900px) {
-          .lp-features-grid,.lp-steps-grid { grid-template-columns:1fr; }
-          .lp-stats-grid { grid-template-columns:repeat(2,1fr); }
-        }
-        @media(max-width:560px) {
-          .lp-stats-grid { grid-template-columns:1fr 1fr; }
-          .lp-cta-row { flex-direction:column; align-items:center; }
-        }
+        @media(max-width:900px) { .lp-features-grid,.lp-steps-grid { grid-template-columns:1fr; } .lp-stats-grid { grid-template-columns:repeat(2,1fr); } }
+        @media(max-width:560px) { .lp-stats-grid { grid-template-columns:1fr 1fr; } .lp-cta-row { flex-direction:column; align-items:center; } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
       `}</style>
     </div>
   )
 }
-=======
-    </div>
-  )
-}
-
-export default LandingPage
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

@@ -1,47 +1,43 @@
-// ===== مُقرِّب تويتر/X =====
-// يستخدم Twitter API v2 للبحث عن تغريدات طلبات العمل
-// تحتاج: Bearer Token من Twitter Developer Portal
-// TODO (الأسبوع 4): تفعيل بعد الحصول على API Key
+// twitterScraper.js — Twitter/X API v2 (requires TWITTER_BEARER_TOKEN)
+const https = require('https')
 
-import axios from 'axios'
+function httpsGet(url, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const opts = new URL(url)
+    https.get({ ...opts, headers }, (res) => {
+      let data = ''
+      res.on('data', c => data += c)
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+      })
+    }).on('error', reject).setTimeout(8000, function() { this.destroy(new Error('timeout')) })
+  })
+}
 
-// كلمات البحث للعثور على طلبات عمل
 const SEARCH_QUERIES = [
-  'مطلوب مطور CSS -is:retweet',
-  'need web developer CSS fix -is:retweet',
-  'looking for frontend developer -is:retweet'
+  'need web developer -is:retweet',
+  'مطلوب مطور موقع -is:retweet',
 ]
 
-export async function scrapeTwitter() {
-  if (!process.env.TWITTER_BEARER_TOKEN) {
-    console.log('⚠️  Twitter Bearer Token غير موجود - يتم تخطي هذا المصدر')
-    return []
-  }
-
+async function scrapeTwitter() {
+  if (!process.env.TWITTER_BEARER_TOKEN) return []
   const allTweets = []
-
   for (const query of SEARCH_QUERIES) {
     try {
-      const { data } = await axios.get(
-        'https://api.twitter.com/2/tweets/search/recent',
-        {
-          params: { query, max_results: 10, 'tweet.fields': 'created_at' },
-          headers: { Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}` }
-        }
+      const params = new URLSearchParams({ query, max_results: '10', 'tweet.fields': 'created_at' })
+      const data   = await httpsGet(
+        `https://api.twitter.com/2/tweets/search/recent?${params}`,
+        { Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}` }
       )
-
       if (data.data) {
         allTweets.push(...data.data.map(t => ({
-          source: 'twitter',
-          rawText: t.text,
-          postedAt: new Date(t.created_at)
+          source: 'twitter', rawText: t.text, postedAt: new Date(t.created_at),
         })))
       }
     } catch (error) {
-      console.error(`خطأ في جلب تويتر:`, error.message)
+      console.error('Twitter scraper error:', error.message)
     }
   }
-
   return allTweets
 }
-// سيتم بناء هذا الـ scraper في الأسبوع الثاني
+module.exports = { scrapeTwitter }

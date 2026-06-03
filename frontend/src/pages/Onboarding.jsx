@@ -1,134 +1,104 @@
-import React, { useState } from 'react'
+// Onboarding.jsx — skill selection on first login
+import React, { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../services/supabase.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useLanguage } from '../context/LanguageContext.jsx'
+import api from '../services/api.js'
+import { supabase } from '../services/supabase.js'
 
-const ROLES = [
-  { id: 'freelancer', icon: '💻', ar: 'مبرمج / فريلانسر', en: 'Developer / Freelancer', desc_ar: 'أبحث عن مشاريع وفرص برمجية', desc_en: 'I hunt coding projects & opportunities' },
-  { id: 'client',     icon: '🏢', ar: 'صاحب مشروع / عميل', en: 'Project Owner / Client',  desc_ar: 'أبحث عن مطورين لتنفيذ مشاريعي', desc_en: 'I look for developers to build my projects' },
-]
-
-const SPECIALTIES = [
-  { id: 'frontend',      icon: '🎨', ar: 'تطوير ويب (فرونتيند)', en: 'Web Frontend' },
-  { id: 'backend',       icon: '⚙️', ar: 'تطوير ويب (باكيند)',   en: 'Web Backend' },
-  { id: 'fullstack',     icon: '🖥️', ar: 'فول ستاك',            en: 'Full Stack' },
-  { id: 'mobile',        icon: '📱', ar: 'تطبيقات موبايل',       en: 'Mobile Apps' },
-  { id: 'ui_ux',         icon: '✏️', ar: 'تصميم UI/UX',          en: 'UI/UX Design' },
-  { id: 'data_science',  icon: '📊', ar: 'علم البيانات / AI',    en: 'Data Science / AI' },
-  { id: 'cybersecurity', icon: '🔐', ar: 'أمن سيبراني',          en: 'Cybersecurity' },
-  { id: 'game_dev',      icon: '🎮', ar: 'تطوير الألعاب',        en: 'Game Development' },
-  { id: 'devops',        icon: '☁️', ar: 'DevOps / Cloud',       en: 'DevOps / Cloud' },
+const SKILL_GROUPS = [
+  { ar: '🎨 الواجهة الأمامية', en: '🎨 Frontend',  skills: ['HTML','CSS','JavaScript','TypeScript','React','Vue.js','Next.js','Tailwind CSS','Bootstrap','Responsive Design'] },
+  { ar: '⚙️ الخلفية',          en: '⚙️ Backend',   skills: ['Node.js','Python','PHP','Laravel','Express.js','Django'] },
+  { ar: '📱 الموبايل',         en: '📱 Mobile',    skills: ['Flutter','React Native','Dart'] },
+  { ar: '🛠 أدوات',            en: '🛠 Tools',     skills: ['WordPress','Shopify','Figma','Git','Firebase','MongoDB','MySQL'] },
 ]
 
 export default function Onboarding() {
   const { user, updateUser } = useAuth()
-  const { isRTL }            = useLanguage()
-  const navigate             = useNavigate()
+  const { isRTL } = useLanguage()
+  const navigate = useNavigate()
+  const [selected, setSelected] = useState([])
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
 
-  const [step, setStep]           = useState(1)
-  const [role, setRole]           = useState('')
-  const [specialty, setSpecialty] = useState('')
-  const [saving, setSaving]       = useState(false)
+  const toggle = useCallback(s =>
+    setSelected(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
+  , [])
 
-  const save = async () => {
-    if (!role || !specialty) return
+  const handleFinish = async () => {
+    if (selected.length === 0) {
+      setError(isRTL ? 'اختر مهارة واحدة على الأقل' : 'Select at least one skill')
+      return
+    }
     setSaving(true)
     try {
-      await supabase.from('profiles').upsert({
-        id:        user.id,
-        role,
-        specialty,
-        onboarded: true,
-      }, { onConflict: 'id' })
-      updateUser({ role, specialty, onboarded: true })
-      navigate('/dashboard')
-    } catch { navigate('/dashboard') }
-    finally { setSaving(false) }
+      // Save skills to backend
+      await api.put('/auth/profile', { skills: selected })
+      // Mark onboarded in Supabase profiles table
+      if (user?.id) {
+        await supabase.from('profiles').upsert({ id: user.id, skills: selected, onboarded: true })
+      }
+      updateUser({ skills: selected, onboarded: true })
+      navigate('/dashboard', { replace: true })
+    } catch (e) {
+      setError(e.response?.data?.message || (isRTL ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, please retry'))
+      setSaving(false)
+    }
   }
 
-  const card_style = (selected, color = '#002D62') => ({
-    border:     `2px solid ${selected ? color : '#D8DEE9'}`,
-    borderRadius: 14,
-    padding:    '1.25rem 1.1rem',
-    cursor:     'pointer',
-    background: selected ? `${color}10` : '#fff',
-    transition: 'all .2s',
-    textAlign:  'center',
-    boxShadow:  selected ? `0 0 0 3px ${color}20` : '0 1px 4px rgba(0,45,98,.06)',
-  })
+  const S = { // minimal inline styles — consistent with rest of project
+    root:   { minHeight: '100vh', background: '#F4F6F9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'clamp(1rem, 5vw, 2rem)', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif' },
+    card:   { background: '#fff', borderRadius: 16, padding: 'clamp(1.25rem, 5vw, 2.5rem)', maxWidth: 680, width: '100%', boxShadow: '0 4px 24px rgba(0,45,98,.08)', border: '1px solid #D8DEE9' },
+    h1:     { fontSize: '1.6rem', fontWeight: 800, color: '#002D62', margin: '0 0 .4rem' },
+    sub:    { fontSize: '.95rem', color: '#5A6478', margin: '0 0 2rem' },
+    group:  { marginBottom: '1.5rem' },
+    label:  { fontSize: '.7rem', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '.5rem', display: 'block' },
+    pills:  { display: 'flex', flexWrap: 'wrap', gap: '.35rem' },
+    pill:   (active) => ({ fontSize: '.8rem', fontWeight: active ? 700 : 400, padding: '.3rem .75rem', borderRadius: 99, cursor: 'pointer', border: `1.5px solid ${active ? '#002D62' : '#D8DEE9'}`, background: active ? '#002D62' : '#fff', color: active ? '#fff' : '#5A6478', transition: 'all .15s' }),
+    btn:    { width: '100%', padding: '.85rem', borderRadius: 10, border: 'none', background: '#002D62', color: '#fff', fontSize: '1rem', fontWeight: 700, cursor: 'pointer', marginTop: '1.5rem', transition: 'opacity .15s' },
+    err:    { color: '#DC3545', fontSize: '.85rem', marginTop: '.75rem', textAlign: 'center' },
+    count:  { fontSize: '.8rem', color: '#002D62', fontWeight: 600, textAlign: isRTL ? 'right' : 'left', marginBottom: '1rem' },
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F6F9', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div style={{ width: '100%', maxWidth: 600, background: '#fff', borderRadius: 20, padding: '2.5rem', boxShadow: '0 8px 40px rgba(0,45,98,.1)', border: '1px solid #D8DEE9' }}>
-
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ width: 52, height: 52, borderRadius: 13, background: '#002D62', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1.4rem', margin: '0 auto 1rem' }}>B</div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '.4rem', marginBottom: '1rem' }}>
-            {[1,2].map(s => (
-              <div key={s} style={{ height: 4, width: s === step ? 48 : 24, borderRadius: 99, background: s <= step ? '#002D62' : '#D8DEE9', transition: 'all .3s' }} />
-            ))}
-          </div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#002D62', margin: '0 0 .4rem' }}>
-            {step === 1 ? (isRTL ? '👋 أهلاً بك في BountyFetch' : '👋 Welcome to BountyFetch') : (isRTL ? '🎯 ما هو تخصصك؟' : '🎯 What is your specialty?')}
-          </h1>
-          <p style={{ fontSize: '.88rem', color: '#5A6478', margin: 0 }}>
-            {step === 1
-              ? (isRTL ? 'أخبرنا عن نفسك لنُخصص تجربتك على المنصة' : 'Tell us about yourself to personalize your experience')
-              : (isRTL ? 'اختر مجالك الرئيسي حتى يعرض لك الرادار أدق الفرص' : 'Choose your main field so the radar shows the most relevant tasks')}
-          </p>
+    <div style={S.root} dir={isRTL ? 'rtl' : 'ltr'}>
+      <div style={S.card}>
+        <h1 style={S.h1}>{isRTL ? '👋 مرحباً بك في BountyFetch' : '👋 Welcome to BountyFetch'}</h1>
+        <p style={S.sub}>{isRTL ? 'اختر مهاراتك لنضبط الرادار على الفرص المناسبة لك' : 'Select your skills so we can tune the radar to your opportunities'}</p>
+        <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap', marginBottom:'1.5rem' }}>
+          {[
+            isRTL ? '🎯 مهام مطابقة لمهاراتك' : '🎯 Tasks matched to your skills',
+            isRTL ? '🤖 مقترحات AI أدق' : '🤖 More accurate AI proposals',
+            isRTL ? '📊 رادار مخصص لك' : '📊 Personalised radar',
+          ].map((t,i) => (
+            <span key={i} style={{ fontSize:'.75rem', padding:'.3rem .75rem', borderRadius:99, background:'#EFF6FF', color:'#1D4ED8', border:'1px solid #BFDBFE' }}>{t}</span>
+          ))}
         </div>
-
-        {/* Step 1 — Role */}
-        {step === 1 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-            {ROLES.map(r => (
-              <div key={r.id} onClick={() => setRole(r.id)} style={card_style(role === r.id)}>
-                <div style={{ fontSize: '2.2rem', marginBottom: '.6rem' }}>{r.icon}</div>
-                <p style={{ fontWeight: 700, color: '#002D62', margin: '0 0 .3rem', fontSize: '.95rem' }}>{isRTL ? r.ar : r.en}</p>
-                <p style={{ fontSize: '.78rem', color: '#5A6478', margin: 0, lineHeight: 1.5 }}>{isRTL ? r.desc_ar : r.desc_en}</p>
-                {role === r.id && <div style={{ marginTop: '.6rem', fontSize: '1rem' }}>✅</div>}
-              </div>
-            ))}
-          </div>
+        {selected.length > 0 && (
+          <p style={S.count}>✓ {selected.length} {isRTL ? 'مهارة مختارة' : 'skills selected'}</p>
         )}
-
-        {/* Step 2 — Specialty */}
-        {step === 2 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '.75rem', marginBottom: '1.5rem' }}>
-            {SPECIALTIES.map(s => (
-              <div key={s.id} onClick={() => setSpecialty(s.id)} style={card_style(specialty === s.id, '#002D62')}>
-                <div style={{ fontSize: '1.5rem', marginBottom: '.4rem' }}>{s.icon}</div>
-                <p style={{ fontWeight: specialty === s.id ? 700 : 500, color: specialty === s.id ? '#002D62' : '#1A1A2E', margin: 0, fontSize: '.78rem', lineHeight: 1.4 }}>{isRTL ? s.ar : s.en}</p>
-              </div>
-            ))}
+        {SKILL_GROUPS.map((g, gi) => (
+          <div key={gi} style={S.group}>
+            <span style={S.label}>{isRTL ? g.ar : g.en}</span>
+            <div style={S.pills}>
+              {g.skills.map(s => (
+                <button key={s} onClick={() => toggle(s)} style={S.pill(selected.includes(s))}>{s}</button>
+              ))}
+            </div>
           </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'space-between' }}>
-          {step === 2 && (
-            <button onClick={() => setStep(1)} style={{ padding: '.72rem 1.4rem', borderRadius: 10, border: '1.5px solid #D8DEE9', background: 'transparent', color: '#5A6478', fontWeight: 600, cursor: 'pointer', fontSize: '.9rem' }}>
-              {isRTL ? '→ رجوع' : '← Back'}
-            </button>
-          )}
+        ))}
+        <button style={{ ...S.btn, opacity: saving ? .6 : 1 }} onClick={handleFinish} disabled={saving}>
+          {saving ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'ابدأ الصيد ←' : '← Start Hunting')}
+        </button>
+        {error && <p style={S.err}>{error}</p>}
+        <div style={{ textAlign:'center', marginTop:'.75rem' }}>
           <button
-            onClick={step === 1 ? () => { if (role) setStep(2) } : save}
-            disabled={step === 1 ? !role : (!specialty || saving)}
-            style={{ flex: 1, padding: '.8rem', borderRadius: 10, background: '#002D62', color: '#fff', fontWeight: 700, border: 'none', cursor: (!role && step===1) || (!specialty && step===2) ? 'not-allowed' : 'pointer', opacity: (!role && step===1) || (!specialty && step===2) ? .45 : 1, fontSize: '.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.5rem', transition: 'all .2s' }}
-          >
-            {saving
-              ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />{isRTL ? 'جاري الحفظ...' : 'Saving...'}</>
-              : step === 1 ? (isRTL ? 'التالي ←' : '→ Next') : (isRTL ? 'ابدأ الاصطياد 🎯' : '🎯 Start Hunting')}
+            onClick={() => navigate('/dashboard', { replace: true })}
+            style={{ background:'none', border:'none', color:'#94A3B8', fontSize:'.82rem', cursor:'pointer', textDecoration:'underline' }}>
+            {isRTL ? 'تخطّ الآن — يمكنني الإضافة لاحقاً' : "Skip for now — I'll add later"}
           </button>
         </div>
-
-        <p style={{ textAlign: 'center', fontSize: '.75rem', color: '#94A3B8', marginTop: '1rem', marginBottom: 0 }}>
-          {isRTL ? 'يمكنك تعديل هذه البيانات لاحقاً من ملفك الشخصي' : 'You can update this info later from your profile'}
-        </p>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

@@ -1,5 +1,5 @@
-<<<<<<< HEAD
 import React, { useState, useRef, useEffect } from 'react'
+import ErrorBoundary from '../components/ui/ErrorBoundary.jsx'
 import Navbar from '../components/layout/Navbar.jsx'
 import { supabase } from '../services/supabase.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -158,24 +158,3 @@ export default function CodeShield() {
     </div>
   )
 }
-=======
-// ===================================================
-// CodeShield.jsx - صفحة درع الكود (الشات بوت)
-// ===================================================
-import React from 'react'
-import Navbar from '../components/layout/Navbar.jsx'
-import ChatWindow from '../components/chatbot/ChatWindow.jsx'
-
-function CodeShield() {
-  return (
-    <div className="page-container flex flex-col">
-      <Navbar />
-      <div className="flex-1 max-w-3xl w-full mx-auto px-4 py-6 flex flex-col" style={{ height: 'calc(100vh - 64px)' }}>
-        <ChatWindow />
-      </div>
-    </div>
-  )
-}
-
-export default CodeShield
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

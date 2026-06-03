@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # BountyFetch v3 — مشروع صياد 🎯
 
 منصة ذكاء اصطناعي لرصد مهام الفريلانس من Telegram وReddit، مع شات في الوقت الفعلي، مولّد بروبوزال بالذكاء الاصطناعي، ونظام ملفات شخصية احترافي.
@@ -117,33 +116,3 @@ bountyfetch_v3/
 - `avatars` — Public — لصور الملفات الشخصية
 - `chat-files` — Public — لمرفقات الشات
 - `support-files` — Public — للقطات شاشة تذاكر الدعم
-=======
-# 🎯 صيّاد التاسكات الذكي — The Task-Bounty Agent
-
-> مساعد ذكي يصطاد المهام البرمجية من الإنترنت في الوقت الفعلي ويساعدك على الفوز بها.
-
-## 🚀 التقنيات المستخدمة
-- **Frontend:** React.js + Vite + Tailwind CSS + i18next
-- **Backend:** Node.js + Express + Socket.io + PostgreSQL + Redis
-- **AI:** Claude API + LangChain.js
-
-## 📁 هيكل المجلدات
-```
-task-bounty-agent/
-├── frontend/     ← واجهة المستخدم (React)
-├── backend/      ← السيرفر والـ API (Node.js)
-└── docs/         ← التوثيق
-```
-
-## ⚡ تشغيل المشروع
-```bash
-# Frontend
-cd frontend && npm install && npm run dev
-
-# Backend
-cd backend && npm install && npm run dev
-```
-
-## 👨‍💻 المطور
-Built with ❤️ as a Capstone Portfolio Project
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

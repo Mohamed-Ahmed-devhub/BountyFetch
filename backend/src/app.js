@@ -1,131 +1,81 @@
-// ===================================================
-<<<<<<< HEAD
-// app.js — نقطة الدخول الرئيسية للـ Backend
-// BountyFetch v3 — Production Ready
-// المسار: backend/src/app.js
-// ===================================================
-
-require('dotenv').config()
-
-const express = require('express')
-const http    = require('http')
-const cors    = require('cors')
-=======
-// app.js - نقطة الدخول الرئيسية للـ Backend
-// يبدأ السيرفر، يربط الـ Socket.io، ويسجل الـ Routes
-// ===================================================
+// app.js — BountyFetch v3 — Backend Entry Point
 require('dotenv').config()
 
 const express  = require('express')
 const http     = require('http')
 const cors     = require('cors')
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 
 const { initSocket }  = require('./config/socket')
 const { connectDB }   = require('./config/database')
 const { initQueues }  = require('./jobs/scrapingJob')
 const errorHandler    = require('./middleware/errorHandler')
+const { apiLimiter, authLimiter, aiLimiter } = require('./middleware/rateLimiter')
 
-<<<<<<< HEAD
 // Routes
 const authRoutes    = require('./routes/authRoutes')
 const taskRoutes    = require('./routes/taskRoutes')
 const aiRoutes      = require('./routes/aiRoutes')
 const supportRoutes = require('./routes/supportRoutes')
 const chatRoutes    = require('./routes/chatRoutes')
-=======
-// استيراد الـ Routes
-const authRoutes = require('./routes/authRoutes')
-const taskRoutes = require('./routes/taskRoutes')
-const aiRoutes   = require('./routes/aiRoutes')
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 
 const app    = express()
 const server = http.createServer(app)
 
-<<<<<<< HEAD
-// ── Middleware ──
+// ── Security headers (manual — no external dep) ──
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN')
+  res.setHeader('X-XSS-Protection', '1; mode=block')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  next()
+})
+
+// ── CORS ──
 app.use(cors({
   origin:      process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true,
 }))
-// لا نضع express.json() قبل multer — multer يتعامل مع multipart
+
+// ── Body parsing ──
+// Note: express.json() comes BEFORE multer routes handle multipart
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
+// ── Global rate limiter ──
+app.use('/api', apiLimiter)
+
 // ── Routes ──
-app.use('/api/auth',    authRoutes)
+app.use('/api/auth',    authLimiter, authRoutes)
 app.use('/api/tasks',   taskRoutes)
-app.use('/api/ai',      aiRoutes)
+app.use('/api/ai',      aiLimiter, aiRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/chat',    chatRoutes)
 
 // Health check
 app.get('/api/health', (_, res) =>
-  res.json({ status: 'ok', message: '◈ BountyFetch Backend يعمل', version: '3.0.0' })
+  res.json({ status: 'ok', message: '◈ BountyFetch Backend is running', version: '3.0.0' })
 )
 
-// ── معالج الأخطاء (يجب أن يكون آخراً) ──
+// ── Error handler (must be last) ──
 app.use(errorHandler)
 
-// ── تشغيل السيرفر ──
-=======
-// --- Middleware ---
-app.use(cors({
-  origin:      process.env.FRONTEND_URL,
-  credentials: true,
-}))
-app.use(express.json())
-
-// --- Routes ---
-app.use('/api/auth',  authRoutes)
-app.use('/api/tasks', taskRoutes)
-app.use('/api/ai',    aiRoutes)
-
-// نقطة للتحقق أن السيرفر يعمل
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: '🎯 Task Bounty Agent يعمل!' })
-})
-
-// --- معالج الأخطاء (يجب أن يكون آخر middleware) ---
-app.use(errorHandler)
-
-// --- تشغيل السيرفر ---
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+// ── Start server ──
 const PORT = process.env.PORT || 3001
 
 async function startServer() {
   try {
-<<<<<<< HEAD
     await connectDB()
     initSocket(server)
     initQueues()
     server.listen(PORT, () => {
       console.log(`\n◈ BountyFetch Backend v3`)
       console.log(`  → http://localhost:${PORT}`)
-      console.log(`  → WebSocket: جاهز مع Redis Adapter`)
-      console.log(`  → Cache:     Redis`)
-      console.log(`  → Queue:     جاهز\n`)
+      console.log(`  → WebSocket: ready`)
+      console.log(`  → Redis:     ${process.env.REDIS_URL ? 'connected' : 'mock (disabled)'}`)
+      console.log(`  → Queue:     running\n`)
     })
   } catch (err) {
-    console.error('❌ فشل تشغيل السيرفر:', err)
-=======
-    // الاتصال بقاعدة البيانات
-    await connectDB()
-    
-    // تهيئة الـ Socket.io
-    initSocket(server)
-    
-    // تشغيل مهام الـ Scraping في الخلفية
-    initQueues()
-    
-    server.listen(PORT, () => {
-      console.log(`🚀 السيرفر يعمل على http://localhost:${PORT}`)
-      console.log(`📡 Socket.io جاهز للاتصالات`)
-    })
-  } catch (error) {
-    console.error('❌ فشل تشغيل السيرفر:', error)
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+    console.error('❌ Server startup failed:', err)
     process.exit(1)
   }
 }

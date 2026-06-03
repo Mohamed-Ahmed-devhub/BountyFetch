@@ -1,373 +1,442 @@
-// ===================================================
-<<<<<<< HEAD
-// Dashboard.jsx — Pillar 2+7: Live Stats + Performance Optimized
-// المسار: frontend/src/pages/Dashboard.jsx
-// ===================================================
+// Dashboard.jsx — Live task radar with real-time feed and filters
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import ErrorBoundary from '../components/ui/ErrorBoundary.jsx'
+import { useNavigate }        from 'react-router-dom'
+import { useAuth }            from '../context/AuthContext.jsx'
+import { useLanguage }        from '../context/LanguageContext.jsx'
+import { useSocket }          from '../hooks/useSocket.js'
+import { useNotifications }   from '../hooks/useNotifications.js'
+import { taskService }        from '../services/taskService.js'
+import { matchScore }         from '../utils/skillsMatcher.js'
+import TaskCard               from '../components/radar/TaskCard.jsx'
+import FilterPanel            from '../components/radar/FilterPanel.jsx'
+import MOCK_TASKS             from '../data/mockTasks.js'
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/layout/Navbar.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { useLanguage } from '../context/LanguageContext.jsx'
-import { useSocket } from '../hooks/useSocket.js'
-import { MOCK_TASKS, DOMAINS, SOURCES, SOURCE_CONFIG } from '../data/mockTasks.js'
-import api from '../services/api.js'
-
-const SKILL_GROUPS = [
-  { ar:'الواجهة الأمامية', en:'Frontend',  skills:['HTML','CSS','JavaScript','React','Vue.js','TypeScript','Next.js','Tailwind CSS','Bootstrap','Responsive'] },
-  { ar:'الخلفية',          en:'Backend',   skills:['Node.js','Python','PHP','Laravel','Express.js'] },
-  { ar:'موبايل',           en:'Mobile',    skills:['Flutter','React Native','Dart'] },
-  { ar:'أدوات',            en:'Tools',     skills:['WordPress','Shopify','Figma','Git','Firebase','MongoDB','MySQL'] },
-]
+const SOURCES = ['all', 'reddit', 'telegram', 'twitter']
 
 export default function Dashboard() {
-  const { user }   = useAuth()
-  const { isRTL }  = useLanguage()
-  const navigate   = useNavigate()
-  const { isConnected, newTasks, onlineCount } = useSocket()
+  const { user, logout }           = useAuth()
+  const { isRTL, language, toggleLanguage } = useLanguage()
+  const navigate                   = useNavigate()
+  const { requestPermission, sendNotification } = useNotifications()
 
-  const [activeDomain,   setActiveDomain]   = useState('all')
-  const [activeSource,   setActiveSource]   = useState('all')
-  const [selectedSkills, setSelectedSkills] = useState([])
-  const [search,         setSearch]         = useState('')
-  const [savedIds,       setSavedIds]       = useState([])
-  const [tasks,          setTasks]          = useState(MOCK_TASKS)
-  const [isRefreshing,   setIsRefreshing]   = useState(false)
-  const [lastUpdated,    setLastUpdated]    = useState(new Date())
-  const [sidebarOpen,    setSidebarOpen]    = useState(true)
-  const [showSaved,      setShowSaved]      = useState(false)
-  // Pillar 2: live stats
-  const [stats,          setStats]          = useState(null)
-  const statsLoadedRef = useRef(false)
+  const [tasks,       setTasks]       = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [refreshing,   setRefreshing]   = useState(false)
+  const [source,      setSource]      = useState('all')
+  const [newTaskIds,  setNewTaskIds]  = useState(new Set())
+  const [savedIds,    setSavedIds]    = useState(new Set())
+  const [savedLoading, setSavedLoading] = useState(false)
+  const [stats,       setStats]       = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isMobile,    setIsMobile]    = useState(() => window.innerWidth < 768)
 
-  // Pillar 2: جلب الإحصائيات مرة واحدة
   useEffect(() => {
-    if (statsLoadedRef.current) return
-    statsLoadedRef.current = true
-    api.get('/tasks/stats').then(({ data }) => setStats(data)).catch(() => {})
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
   }, [])
+  const [search,      setSearch]      = useState('')
+  const [skillFilter, setSkillFilter] = useState([])
+  const newBadgeTimers               = useRef({})
 
-  // إضافة مهام جديدة من Socket.io
+  // Fetch tasks
+  const fetchTasks = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    try {
+      const params = {}
+      if (source !== 'all')          params.source = source
+      if (skillFilter.length > 0)    params.skills = skillFilter
+      const res = await taskService.getTasks(params)
+      setTasks(res.data.tasks || MOCK_TASKS)
+    } catch {
+      setTasks(MOCK_TASKS)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [source, skillFilter])
+
+  useEffect(() => { fetchTasks() }, [fetchTasks])
+
+  // Fetch live stats
   useEffect(() => {
-    if (!newTasks.length) return
-    setTasks(p => {
-      const ids = new Set(p.map(t => t.id))
-      const fresh = newTasks.filter(t => !ids.has(t.id)).map(t => ({ ...t, _isNew: true }))
-      return fresh.length ? [...fresh, ...p].slice(0, 60) : p
-    })
-    setLastUpdated(new Date())
-  }, [newTasks])
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true)
-    api.get('/tasks').then(({ data }) => {
-      if (data.tasks?.length) setTasks(data.tasks)
-      else setTasks([...MOCK_TASKS].sort(() => Math.random() - .5))
-    }).catch(() => {
-      setTasks([...MOCK_TASKS].sort(() => Math.random() - .5))
-    }).finally(() => {
-      setLastUpdated(new Date())
-      setIsRefreshing(false)
-    })
+    taskService.getStats()
+      .then(r => setStats(r.data))
+      .catch(() => {})
   }, [])
 
-  const toggleSkill = useCallback(s => {
-    setSelectedSkills(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
+  // Request notification permission on mount
+  useEffect(() => { requestPermission() }, [requestPermission])
+
+  // Socket.io — live new tasks
+  useSocket(useCallback((newTask) => {
+    setTasks(prev => {
+      if (prev.find(t => t.id === newTask.id)) return prev
+      return [newTask, ...prev]
+    })
+    setNewTaskIds(prev => new Set([...prev, newTask.id]))
+    sendNotification(
+      isRTL ? '🎯 مهمة جديدة!' : '🎯 New Task!',
+      newTask.title,
+      `/tasks/${newTask.id}`
+    )
+    // Clear NEW badge after 30s
+    if (newBadgeTimers.current[newTask.id]) clearTimeout(newBadgeTimers.current[newTask.id])
+    newBadgeTimers.current[newTask.id] = setTimeout(() => {
+      setNewTaskIds(prev => { const s = new Set(prev); s.delete(newTask.id); return s })
+    }, 30000)
+  }, [isRTL, sendNotification]))
+
+  // Filtered + searched tasks with match scoring
+  const displayedTasks = useMemo(() => {
+    let list = tasks
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(t =>
+        t.title?.toLowerCase().includes(q) ||
+        t.description?.toLowerCase().includes(q) ||
+        t.skills?.some(s => s.toLowerCase().includes(q))
+      )
+    }
+    if (skillFilter.length > 0) {
+      list = list.filter(t => skillFilter.some(sf =>
+        t.skills?.map(s => s.toLowerCase()).includes(sf.toLowerCase())
+      ))
+    }
+    // Sort: NEW first, then by match score, then by date
+    return [...list].sort((a, b) => {
+      const aNew   = newTaskIds.has(a.id) ? 1 : 0
+      const bNew   = newTaskIds.has(b.id) ? 1 : 0
+      if (aNew !== bNew) return bNew - aNew
+      const aScore = matchScore(a.skills, user?.skills || [])
+      const bScore = matchScore(b.skills, user?.skills || [])
+      if (aScore !== bScore) return bScore - aScore
+      return new Date(b.postedAt) - new Date(a.postedAt)
+    })
+  }, [tasks, search, skillFilter, newTaskIds, user?.skills])
+
+  // Load saved IDs from backend on mount
+  useEffect(() => {
+    setSavedLoading(true)
+    taskService.getSavedTasks()
+      .then(r => setSavedIds(new Set(r.data.ids || [])))
+      .catch(() => {}) // non-fatal — start with empty set
+      .finally(() => setSavedLoading(false))
   }, [])
 
-  // Pillar 7: useMemo لتجنب إعادة الفلترة في كل render
-  const filtered = useMemo(() => tasks.filter(t => {
-    if (showSaved && !savedIds.includes(t.id)) return false
-    if (activeDomain !== 'all' && t.domain !== activeDomain) return false
-    if (activeSource !== 'all' && t.source !== activeSource) return false
-    if (selectedSkills.length > 0 && !t.skills?.some(s => selectedSkills.map(x => x.toLowerCase()).includes(s.toLowerCase()))) return false
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.description?.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  }), [tasks, showSaved, savedIds, activeDomain, activeSource, selectedSkills, search])
+  const handleSave = useCallback(async (taskId) => {
+    const wasSaved = savedIds.has(taskId)
+    // Optimistic update
+    setSavedIds(prev => {
+      const s = new Set(prev)
+      wasSaved ? s.delete(taskId) : s.add(taskId)
+      return s
+    })
+    try {
+      if (wasSaved) await taskService.unsaveTask(taskId)
+      else          await taskService.saveTask(taskId)
+    } catch {
+      // Rollback on failure
+      setSavedIds(prev => {
+        const s = new Set(prev)
+        wasSaved ? s.add(taskId) : s.delete(taskId)
+        return s
+      })
+    }
+  }, [savedIds])
 
-  const fmt = useCallback(d => d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }), [])
+  const S = {
+    root:        { minHeight: '100vh', background: '#F4F6F9', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif', direction: isRTL ? 'rtl' : 'ltr' },
+    topbar:      { background: '#002D62', padding: '.75rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', position: 'sticky', top: 0, zIndex: 100 },
+    logo:        { fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-.02em' },
+    topbarRight: { display: 'flex', alignItems: 'center', gap: '.6rem' },
+    topBtn:      { padding: '.4rem .85rem', borderRadius: 7, border: '1px solid rgba(255,255,255,.25)', background: 'transparent', color: '#fff', fontSize: '.8rem', cursor: 'pointer', transition: 'background .15s' },
+    body:        { display: 'flex', flexDirection: isMobile ? 'column' : 'row', maxWidth: 1200, margin: '0 auto', padding: isMobile ? '1rem .75rem' : '1.5rem 1rem', gap: '1.25rem' },
+    sidebar:     { width: isMobile ? '100%' : 260, flexShrink: 0, display: (isMobile && !sidebarOpen) ? 'none' : 'block' },
+    main:        { flex: 1, minWidth: 0 },
+    sourceRow:   { display: 'flex', gap: '.35rem', marginBottom: '1rem', flexWrap: 'wrap' },
+    sourceBtn:   (a) => ({ padding: '.4rem .9rem', borderRadius: 99, border: `1.5px solid ${a ? '#002D62' : '#D8DEE9'}`, background: a ? '#002D62' : '#fff', color: a ? '#fff' : '#5A6478', fontSize: '.8rem', fontWeight: a ? 700 : 500, cursor: 'pointer', textTransform: 'capitalize' }),
+    searchBar:   { width: '100%', padding: '.65rem 1rem', borderRadius: 9, border: '1.5px solid #D8DEE9', background: '#fff', fontSize: '.9rem', marginBottom: '1rem', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' },
+    statsRow:    { display: 'flex', gap: '.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' },
+    statPill:    { fontSize: '.8rem', padding: '.35rem .85rem', borderRadius: 99, background: '#EBF8FF', color: '#2B6CB0', border: '1px solid #BEE3F8', fontWeight: 600 },
+    grid:        { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(300px,1fr))', gap: isMobile ? '.75rem' : '1rem' },
+    empty:       { textAlign: 'center', color: '#94A3B8', padding: '3rem 1rem', fontSize: '.95rem' },
+    skeleton:    { background: '#fff', borderRadius: 12, height: 130, border: '1px solid #E2E8F0', padding: '1rem', overflow: 'hidden', position: 'relative' },
+    skelLine:    (w, h='12px', mb='8px') => ({ background: '#E2E8F0', borderRadius: 6, height: h, width: w, marginBottom: mb, animation: 'shimmer 1.4s infinite' }),
+    countBadge:  { fontSize: '.75rem', background: 'rgba(255,255,255,.15)', color: '#fff', padding: '.2rem .55rem', borderRadius: 99, marginLeft: '.35rem' },
+  }
 
-  const BTN = useCallback((active) => ({
-    fontSize:'.8rem', fontWeight:active?700:500, padding:'.4rem .9rem', borderRadius:99, cursor:'pointer',
-    whiteSpace:'nowrap', transition:'all .15s', border:'none',
-    background:active?'#002D62':'#fff', color:active?'#fff':'#5A6478',
-    boxShadow:active?'0 2px 8px rgba(0,45,98,.2)':'0 1px 3px rgba(0,45,98,.06)',
-  }), [])
+  const newCount = newTaskIds.size
 
   return (
-    <div style={{ background:'#F4F6F9', minHeight:'100vh', overflowX:'hidden' }} dir={isRTL?'rtl':'ltr'}>
-      <Navbar />
-      <div style={{ display:'flex', height:'calc(100vh - 64px)', overflow:'hidden' }}>
-
-        {/* Sidebar */}
-        <aside style={{ width:sidebarOpen?240:50, flexShrink:0, background:'#fff', borderInlineEnd:'1px solid #D8DEE9', display:'flex', flexDirection:'column', overflow:'hidden', transition:'width .3s ease' }}>
-          <div style={{ padding:'1rem', borderBottom:'1px solid #D8DEE9', display:'flex', alignItems:'center', justifyContent:'space-between', minHeight:52 }}>
-            {sidebarOpen && <span style={{ fontSize:'.7rem', fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'#5A6478', whiteSpace:'nowrap', overflow:'hidden' }}>{isRTL?'فلتر المهارات':'Skill Filter'}</span>}
-            <button onClick={()=>setSidebarOpen(v=>!v)} style={{ background:'none', border:'1px solid #D8DEE9', borderRadius:7, padding:'.28rem', cursor:'pointer', display:'flex', alignItems:'center', color:'#5A6478', marginInlineStart:sidebarOpen?'auto':0 }}>
-              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 4h12M2 8h12M2 12h6"/></svg>
-            </button>
-          </div>
-
-          {sidebarOpen && (
-            <div style={{ flex:1, overflowY:'auto', padding:'.85rem', display:'flex', flexDirection:'column', gap:'1.1rem' }}>
-              {SKILL_GROUPS.map((g,gi) => (
-                <div key={gi}>
-                  <p style={{ fontSize:'.66rem', fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'#94A3B8', marginBottom:'.45rem' }}>{isRTL?g.ar:g.en}</p>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:'.3rem' }}>
-                    {g.skills.map(s => {
-                      const active = selectedSkills.includes(s)
-                      return (
-                        <button key={s} onClick={()=>toggleSkill(s)} style={{ fontSize:'.72rem', fontWeight:active?700:400, padding:'.22rem .6rem', borderRadius:99, cursor:'pointer', transition:'all .15s', background:active?'#002D62':'transparent', color:active?'#fff':'#5A6478', border:`1px solid ${active?'#002D62':'#D8DEE9'}` }}>
-                          {s}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-              {selectedSkills.length > 0 && (
-                <button onClick={()=>setSelectedSkills([])} style={{ fontSize:'.75rem', fontWeight:600, color:'#DC3545', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'.4rem .75rem', cursor:'pointer' }}>
-                  {isRTL?`✕ مسح (${selectedSkills.length})`:`✕ Clear (${selectedSkills.length})`}
-                </button>
-              )}
-            </div>
+    <div style={S.root}>
+      {/* Top bar */}
+      <div style={S.topbar}>
+        <span style={S.logo}>◈ BountyFetch</span>
+        <div style={{ ...S.topbarRight, gap: isMobile ? '.3rem' : '.6rem' }}>
+          {newCount > 0 && (
+            <span style={{ ...S.statPill, background: '#DC3545', color: '#fff', border: 'none' }}>
+              ● {newCount} {isRTL ? 'جديدة' : 'new'}
+            </span>
           )}
-        </aside>
+          <button style={S.topBtn} onClick={toggleLanguage}>{isRTL ? 'EN' : 'ع'}</button>
+          {!isMobile && <button style={S.topBtn} onClick={() => navigate('/profile')}>{isRTL ? 'الملف' : 'Profile'}</button>}
+          {!isMobile && <button style={S.topBtn} onClick={() => navigate('/code-shield')}>{isRTL ? 'شيلد' : 'Shield'}</button>}
+          {!isMobile && <button style={S.topBtn} onClick={() => navigate('/hub')}>DevHub</button>}
+          {!isMobile && <button style={S.topBtn} onClick={() => navigate('/support')}>{isRTL ? 'دعم' : 'Support'}</button>}
+          <button style={{ ...S.topBtn, borderColor: '#FF6B6B', color: '#FF6B6B' }} onClick={logout}>
+            {isRTL ? 'خروج' : 'Logout'}
+          </button>
+        </div>
+      </div>
 
-        {/* Main */}
-        <main style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', padding:'1.25rem 1.5rem', gap:'1rem' }}>
-
-          {/* Header + Pillar 2: live badge */}
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:'.75rem' }}>
-            <div>
-              <h1 style={{ fontFamily:'Plus Jakarta Sans,Cairo,sans-serif', fontSize:'1.35rem', fontWeight:800, color:'#002D62', margin:0 }}>
-                {isRTL?'📡 رادار القنص':'📡 Bounty Radar'}
-              </h1>
-              <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginTop:'.3rem', flexWrap:'wrap' }}>
-                <span style={{ width:6, height:6, borderRadius:'50%', background: isConnected ? '#28A745' : '#DC3545', display:'inline-block', animation: isConnected ? 'pulse 2s infinite' : 'none' }} />
-                <span style={{ fontSize:'.75rem', color:'#5A6478' }}>{isConnected ? (isRTL?'متصل':'Connected') : (isRTL?'غير متصل':'Disconnected')}</span>
-                {/* Pillar 2: عدد المتصلين الحقيقي */}
-                {isConnected && onlineCount > 0 && (
-                  <span style={{ fontSize:'.72rem', fontWeight:700, color:'#28A745', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:99, padding:'.1rem .5rem' }}>
-                    🟢 {onlineCount} {isRTL?'مطوّر متصل':'online'}
-                  </span>
-                )}
-                {stats && (
-                  <span style={{ fontSize:'.72rem', color:'#94A3B8' }}>
-                    · {stats.totalUsers?.toLocaleString()} {isRTL?'مطوّر':'devs'} · {stats.totalTasks?.toLocaleString()} {isRTL?'مهمة':'tasks'}
-                  </span>
-                )}
-                <span style={{ fontSize:'.7rem', color:'#94A3B8' }}>· {fmt(lastUpdated)}</span>
+      <div style={S.body}>
+        {/* Sidebar */}
+        <div style={S.sidebar}>
+          <FilterPanel
+            selectedSkills={skillFilter}
+            onSkillsChange={setSkillFilter}
+            userSkills={user?.skills || []}
+          />
+          {/* User mini card */}
+          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '1rem', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+              {user?.avatar
+                ? <img src={user.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#002D62', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '.9rem' }}>{user?.name?.[0] || '?'}</div>
+              }
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '.85rem', color: '#1E293B' }}>{user?.name}</div>
+                <div style={{ fontSize: '.75rem', color: '#94A3B8' }}>{user?.skills?.length || 0} {isRTL ? 'مهارة' : 'skills'}</div>
               </div>
             </div>
-            <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap' }}>
-              <button onClick={()=>setShowSaved(v=>!v)} style={BTN(showSaved)}>
-                🔖 {isRTL?`المفضلة (${savedIds.length})`:`Saved (${savedIds.length})`}
-              </button>
-              <button onClick={handleRefresh} disabled={isRefreshing} style={{ ...BTN(false), background:'#002D62', color:'#fff', opacity:isRefreshing?.7:1 }}>
-                <span style={{ display:'inline-block', animation:isRefreshing?'spin .8s linear infinite':'none' }}>🔄</span>{' '}
-                {isRTL?(isRefreshing?'يحدّث...':'تحديث'):(isRefreshing?'Refreshing...':'Refresh')}
+          </div>
+          {/* Profile completion nudge */}
+          {user && (() => {
+            const fields = [
+              user.skills?.length > 2,
+              !!user.bio,
+              !!user.jobTitle,
+              !!(user.linkedinUrl || user.githubUrl),
+              !!user.avatar,
+            ]
+            const done = fields.filter(Boolean).length
+            const pct  = Math.round((done / fields.length) * 100)
+            if (pct >= 100) return null
+            return (
+              <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:12, padding:'.85rem 1rem', marginTop:'1rem', cursor:'pointer' }}
+                onClick={() => navigate('/profile')}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'.4rem' }}>
+                  <span style={{ fontSize:'.78rem', fontWeight:700, color:'#1D4ED8' }}>
+                    {isRTL ? `🎯 أكمل ملفك — ${pct}%` : `🎯 Complete profile — ${pct}%`}
+                  </span>
+                  <span style={{ fontSize:'.7rem', color:'#93C5FD' }}>←</span>
+                </div>
+                <div style={{ background:'#BFDBFE', borderRadius:99, height:5 }}>
+                  <div style={{ width:`${pct}%`, height:'100%', borderRadius:99, background:'#2563EB', transition:'width .4s' }}/>
+                </div>
+                <p style={{ fontSize:'.72rem', color:'#3B82F6', margin:'.35rem 0 0' }}>
+                  {isRTL ? 'ملفك يحسّن جودة المقترحات المولّدة بالـ AI' : 'Your profile improves AI-generated proposal quality'}
+                </p>
+              </div>
+            )
+          })()}
+
+          {/* Live stats */}
+          {stats && (
+            <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12, padding: '1rem', marginTop: '1rem' }}>
+              <div style={{ fontSize: '.7rem', fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: '.75rem' }}>
+                {isRTL ? 'إحصائيات حية' : 'Live Stats'}
+              </div>
+              {[
+                { label: isRTL ? 'الأعضاء' : 'Members',   value: stats.totalUsers },
+                { label: isRTL ? 'المهام' : 'Tasks',       value: stats.totalTasks },
+                { label: isRTL ? 'المقترحات' : 'Proposals', value: stats.totalProposals },
+                { label: isRTL ? 'أونلاين' : 'Online',     value: stats.onlineNow || 0 },
+              ].map(s => (
+                <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '.3rem 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '.8rem', color: '#5A6478' }}>{s.label}</span>
+                  <span style={{ fontSize: '.8rem', fontWeight: 700, color: '#002D62' }}>{s.value?.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Main content */}
+        <div style={S.main}>
+          {/* First-run welcome banner */}
+          {user && (!user.skills || user.skills.length === 0) && (
+            <div style={{ background:'linear-gradient(135deg,#002D62,#1D4ED8)', borderRadius:12, padding:'1.1rem 1.25rem', marginBottom:'1rem', display:'flex', alignItems:'center', justifyContent:'space-between', gap:'1rem', flexWrap:'wrap' }}>
+              <div>
+                <p style={{ color:'#fff', fontWeight:700, fontSize:'.95rem', margin:'0 0 .2rem' }}>
+                  {isRTL ? `👋 مرحباً ${user.name?.split(' ')[0] || ''}!` : `👋 Welcome, ${user.name?.split(' ')[0] || ''}!`}
+                </p>
+                <p style={{ color:'rgba(255,255,255,.75)', fontSize:'.82rem', margin:0 }}>
+                  {isRTL ? 'أضف مهاراتك لتحسين مطابقة المهام وجودة المقترحات.' : 'Add your skills to improve task matching and proposal quality.'}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/profile')}
+                style={{ padding:'.55rem 1.2rem', borderRadius:8, border:'1.5px solid rgba(255,255,255,.4)', background:'transparent', color:'#fff', fontWeight:700, fontSize:'.85rem', cursor:'pointer', whiteSpace:'nowrap' }}>
+                {isRTL ? '← أضف مهاراتك' : '← Add Skills'}
               </button>
             </div>
+          )}
+
+          {/* Mobile sidebar toggle */}
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(p => !p)}
+              style={{ padding:'.5rem .9rem', borderRadius:8, border:'1.5px solid #D8DEE9', background:'#fff', fontSize:'.85rem', fontWeight:600, cursor:'pointer', marginBottom:'.75rem', color:'#002D62' }}
+            >
+              {sidebarOpen ? (isRTL ? '✕ إخفاء الفلاتر' : '✕ Hide filters') : (isRTL ? '⚙ الفلاتر والإحصائيات' : '⚙ Filters & Stats')}
+            </button>
+          )}
+          {/* Source filter + refresh indicator */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'.5rem' }}>
+            <div/>
+            {refreshing && <span style={{ fontSize:'.75rem', color:'#94A3B8', display:'flex', alignItems:'center', gap:'.3rem' }}><span style={{ width:10,height:10,border:'2px solid #94A3B840',borderTopColor:'#94A3B8',borderRadius:'50%',animation:'spin .8s linear infinite',display:'inline-block'}}/>{isRTL?'جاري التحديث...':'Refreshing...'}</span>}
+          </div>
+          <div style={S.sourceRow}>
+            {SOURCES.map(s => (
+              <button key={s} style={S.sourceBtn(source === s)} onClick={() => setSource(s)}>
+                {s === 'all' ? (isRTL ? 'الكل' : 'All') : s}
+                {s === 'all' && <span style={S.countBadge}>{tasks.length}</span>}
+              </button>
+            ))}
           </div>
 
           {/* Search */}
-          <input value={search} onChange={e=>setSearch(e.target.value)}
-            placeholder={isRTL?'🔍 ابحث في المهام...':'🔍 Search tasks...'}
-            style={{ padding:'.6rem 1rem', border:'1.5px solid #D8DEE9', borderRadius:9, fontSize:'.875rem', background:'#fff', outline:'none', color:'#1A1A2E', transition:'border-color .15s' }}
-            onFocus={e=>e.target.style.borderColor='#002D62'} onBlur={e=>e.target.style.borderColor='#D8DEE9'}
+          <input
+            style={S.searchBar}
+            placeholder={isRTL ? '🔍 ابحث عن مهارة أو كلمة مفتاحية...' : '🔍 Search by skill or keyword...'}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            dir={isRTL ? 'rtl' : 'ltr'}
           />
 
-          {/* Domain filters */}
-          <div style={{ display:'flex', gap:'.4rem', overflowX:'auto', flexShrink:0, paddingBottom:'.1rem' }}>
-            {DOMAINS.map(d => (
-              <button key={d.id} onClick={()=>setActiveDomain(d.id)} style={{ ...BTN(activeDomain===d.id), padding:'.38rem .85rem', whiteSpace:'nowrap' }}>
-                {d.icon} {isRTL?d.ar:d.en}
-              </button>
-            ))}
-          </div>
+          {/* Stats pills */}
+          {displayedTasks.length > 0 && (
+            <div style={S.statsRow}>
+              <span style={S.statPill}>
+                {displayedTasks.length} {isRTL ? 'مهمة' : 'tasks'}
+              </span>
+              {newCount > 0 && (
+                <span style={{ ...S.statPill, background: '#FEF9C3', color: '#854D0E', border: '1px solid #FDE047' }}>
+                  ● {newCount} {isRTL ? 'جديدة الآن' : 'new now'}
+                </span>
+              )}
+              {skillFilter.length > 0 && (
+                <span
+                  style={{ ...S.statPill, cursor: 'pointer', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FCA5A5' }}
+                  onClick={() => setSkillFilter([])}
+                >
+                  ✕ {isRTL ? 'إلغاء الفلتر' : 'Clear filter'}
+                </span>
+              )}
+            </div>
+          )}
 
-          {/* Source filters */}
-          <div style={{ display:'flex', gap:'.3rem', overflowX:'auto', flexShrink:0 }}>
-            {SOURCES.slice(0,7).map(s => (
-              <button key={s.id} onClick={()=>setActiveSource(s.id)} style={{ fontSize:'.72rem', fontWeight:activeSource===s.id?700:400, padding:'.26rem .7rem', borderRadius:99, cursor:'pointer', whiteSpace:'nowrap', transition:'all .15s', border:'none', background:activeSource===s.id?'#E8EEF7':'transparent', color:activeSource===s.id?'#002D62':'#94A3B8' }}>
-                {s.id!=='all' && SOURCE_CONFIG[s.id]?.emoji} {isRTL?s.ar:s.en}
-              </button>
-            ))}
-          </div>
-
-          {/* Feed */}
-          <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:'.75rem', paddingInlineEnd:'.15rem' }}>
-            {isRefreshing ? (
-              Array.from({length:4}).map((_,i) => (
-                <div key={i} style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:12, padding:'1.25rem', display:'flex', flexDirection:'column', gap:'.7rem' }}>
-                  {[25,75,100,38].map((w,j) => <div key={j} className="skeleton" style={{ height:j===1?17:11, width:`${w}%` }} />)}
+          {/* Task grid */}
+          {loading ? (
+            <div style={S.grid}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={S.skeleton}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom: 10 }}>
+                    <div style={S.skelLine('60%', '14px')}/>
+                    <div style={S.skelLine('18%', '14px')}/>
+                  </div>
+                  <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+                    <div style={S.skelLine('22%', '22px', '0')}/>
+                    <div style={S.skelLine('18%', '22px', '0')}/>
+                    <div style={S.skelLine('20%', '22px', '0')}/>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginTop:'auto', paddingTop:8 }}>
+                    <div style={S.skelLine('25%', '11px', '0')}/>
+                    <div style={S.skelLine('20%', '11px', '0')}/>
+                  </div>
                 </div>
-              ))
-            ) : filtered.length === 0 ? (
-              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'3rem', textAlign:'center' }}>
-                <div style={{ fontSize:'3rem', marginBottom:'.75rem' }}>📭</div>
-                <p style={{ fontWeight:700, color:'#1A1A2E', margin:'0 0 .4rem' }}>{isRTL?'لا توجد مهام مطابقة':'No matching tasks'}</p>
-                <p style={{ fontSize:'.85rem', color:'#5A6478', margin:0 }}>{isRTL?'جرّب تعديل الفلاتر أو اضغط تحديث':'Try adjusting filters or click Refresh'}</p>
-              </div>
-            ) : (
-              filtered.map((task, i) => {
-                const src     = SOURCE_CONFIG[task.source] || SOURCE_CONFIG.rss
-                const isSaved = savedIds.includes(task.id)
-                const srcUrl  = task.url || task.sourceUrl
-                return (
-                  <article key={task.id}
-                    onClick={()=>navigate(`/task/${task.id}`)}
-                    style={{ background:'#fff', border:`1px solid ${task._isNew?'#28A745':'#D8DEE9'}`, borderRadius:12, padding:'1.1rem 1.25rem 1rem', cursor:'pointer', transition:'box-shadow .2s,transform .15s', boxShadow:task._isNew?'0 0 0 2px rgba(40,167,69,.12)':'0 1px 4px rgba(0,45,98,.06)', position:'relative', animation:`fadeUp .3s ease ${Math.min(i*.04,.3)}s both` }}
-                    onMouseEnter={e=>{ e.currentTarget.style.boxShadow='0 6px 20px rgba(0,45,98,.1)'; e.currentTarget.style.transform='translateY(-1px)' }}
-                    onMouseLeave={e=>{ e.currentTarget.style.boxShadow=task._isNew?'0 0 0 2px rgba(40,167,69,.12)':'0 1px 4px rgba(0,45,98,.06)'; e.currentTarget.style.transform='' }}
-                  >
-                    {task._isNew && <span style={{ position:'absolute', top:'.65rem', insetInlineEnd:'.65rem', fontSize:'.6rem', fontWeight:800, color:'#28A745', background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:99, padding:'.15rem .5rem' }}>{isRTL?'⚡ جديد':'⚡ NEW'}</span>}
-                    <div style={{ display:'flex', alignItems:'center', gap:'.45rem', marginBottom:'.55rem', flexWrap:'wrap' }}>
-                      <span style={{ fontSize:'.7rem', fontWeight:700, padding:'.18rem .6rem', borderRadius:99, color:src.color, background:`${src.color}15`, border:`1px solid ${src.color}30` }}>{src.emoji} {src.label}</span>
-                      <span style={{ fontSize:'.68rem', color:'#94A3B8', marginInlineStart:'auto' }}>{task.postedAt}</span>
-                      <button onClick={e=>{ e.stopPropagation(); setSavedIds(p => p.includes(task.id) ? p.filter(x=>x!==task.id) : [...p, task.id]) }} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'.9rem', padding:'.1rem', transition:'transform .2s' }}
-                        onMouseEnter={e=>e.currentTarget.style.transform='scale(1.2)'} onMouseLeave={e=>e.currentTarget.style.transform=''}>
-                        {isSaved?'🔖':'📌'}
+              ))}
+            </div>
+          ) : displayedTasks.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'3rem 1rem' }}>
+              {search || skillFilter.length > 0 ? (
+                // Filtered empty state — actionable
+                <div style={{ maxWidth:360, margin:'0 auto' }}>
+                  <div style={{ fontSize:'2.5rem', marginBottom:'.75rem' }}>🔍</div>
+                  <h3 style={{ fontSize:'1rem', fontWeight:700, color:'#1E293B', margin:'0 0 .4rem' }}>
+                    {isRTL ? 'لا توجد نتائج مطابقة' : 'No matching results'}
+                  </h3>
+                  <p style={{ fontSize:'.875rem', color:'#94A3B8', margin:'0 0 1.25rem', lineHeight:1.6 }}>
+                    {isRTL ? 'جرّب تغيير كلمات البحث أو إلغاء بعض الفلاتر.' : 'Try different keywords or remove some filters.'}
+                  </p>
+                  <div style={{ display:'flex', gap:'.6rem', justifyContent:'center', flexWrap:'wrap' }}>
+                    {search && (
+                      <button onClick={() => setSearch('')}
+                        style={{ padding:'.5rem 1.1rem', borderRadius:8, border:'1.5px solid #D8DEE9', background:'#fff', fontSize:'.85rem', cursor:'pointer', color:'#5A6478' }}>
+                        {isRTL ? '✕ مسح البحث' : '✕ Clear search'}
                       </button>
-                    </div>
-                    <h3 style={{ fontSize:'.93rem', fontWeight:700, color:'#1A1A2E', margin:'0 0 .4rem', lineHeight:1.4, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{task.title}</h3>
-                    <p style={{ fontSize:'.8rem', color:'#5A6478', margin:'0 0 .55rem', lineHeight:1.6, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{task.description}</p>
-                    {task.skills?.length>0 && (
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:'.3rem', marginBottom:'.6rem' }}>
-                        {task.skills.map(s=><span key={s} style={{ fontSize:'.67rem', fontWeight:600, padding:'.18rem .55rem', borderRadius:99, background:'#E8EEF7', border:'1px solid #C5D3E8', color:'#002D62' }}>{s}</span>)}
-                      </div>
                     )}
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'.5rem', flexWrap:'wrap' }}>
-                      <span style={{ fontSize:'.78rem', fontWeight:700, color:'#28A745', fontFamily:'JetBrains Mono,monospace' }}>{task.budget||(isRTL?'مفتوح':'Open')}</span>
-                      <div style={{ display:'flex', gap:'.4rem' }} onClick={e=>e.stopPropagation()}>
-                        {/* Pillar 4: رابط المصدر الحقيقي */}
-                        {srcUrl && srcUrl !== '#' && (
-                          <a href={srcUrl} target="_blank" rel="noopener noreferrer"
-                            style={{ fontSize:'.72rem', fontWeight:600, padding:'.28rem .65rem', borderRadius:7, border:'1px solid #D8DEE9', background:'transparent', color:'#5A6478', textDecoration:'none', transition:'all .15s' }}
-                            onMouseEnter={e=>{ e.currentTarget.style.borderColor='#0ea5e9'; e.currentTarget.style.color='#0ea5e9' }}
-                            onMouseLeave={e=>{ e.currentTarget.style.borderColor='#D8DEE9'; e.currentTarget.style.color='#5A6478' }}>
-                            🔗 {isRTL?'المصدر':'Source'}
-                          </a>
-                        )}
-                        <button onClick={()=>navigate(`/task/${task.id}`)}
-                          style={{ fontSize:'.75rem', fontWeight:700, padding:'.32rem .75rem', borderRadius:7, border:'1.5px solid #002D62', background:'transparent', color:'#002D62', cursor:'pointer', transition:'all .15s' }}
-                          onMouseEnter={e=>{ e.currentTarget.style.background='#002D62'; e.currentTarget.style.color='#fff' }}
-                          onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#002D62' }}>
-                          {isRTL?'اصطد ←':'→ Hunt'}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                )
-              })
-            )}
-          </div>
-        </main>
+                    {skillFilter.length > 0 && (
+                      <button onClick={() => setSkillFilter([])}
+                        style={{ padding:'.5rem 1.1rem', borderRadius:8, border:'1.5px solid #D8DEE9', background:'#fff', fontSize:'.85rem', cursor:'pointer', color:'#5A6478' }}>
+                        {isRTL ? '✕ مسح الفلتر' : '✕ Clear filters'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // No tasks at all — radar state
+                <div style={{ maxWidth:380, margin:'0 auto' }}>
+                  <div style={{ fontSize:'2.5rem', marginBottom:'.75rem' }}>📡</div>
+                  <h3 style={{ fontSize:'1rem', fontWeight:700, color:'#1E293B', margin:'0 0 .4rem' }}>
+                    {isRTL ? 'الرادار يعمل...' : 'Radar is running...'}
+                  </h3>
+                  <p style={{ fontSize:'.875rem', color:'#94A3B8', margin:'0 0 1.25rem', lineHeight:1.6 }}>
+                    {isRTL
+                      ? 'سيجلب الرادار مهام جديدة من Reddit وتيليجرام كل 10 دقائق. ستظهر هنا فور اكتشافها.'
+                      : 'The radar fetches new tasks from Reddit and Telegram every 10 minutes. They will appear here the moment they are found.'}
+                  </p>
+                  <p style={{ fontSize:'.78rem', color:'#CBD5E1' }}>
+                    {isRTL ? '⏱ آخر فحص: منذ لحظات' : '⏱ Last scan: moments ago'}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={S.grid}>
+              {displayedTasks.map(task => (
+                <div key={task.id} style={{ position: 'relative' }}>
+                  <TaskCard task={task} isNew={newTaskIds.has(task.id)} />
+                  <button
+                    onClick={e => { e.stopPropagation(); handleSave(task.id) }}
+                    style={{
+                      position: 'absolute', top: 8, right: isRTL ? 'auto' : 8, left: isRTL ? 8 : 'auto',
+                      background: savedIds.has(task.id) ? '#002D62' : 'rgba(255,255,255,.9)',
+                      border: '1px solid #E2E8F0', borderRadius: 7, padding: '.2rem .5rem',
+                      fontSize: '.7rem', cursor: 'pointer', color: savedIds.has(task.id) ? '#fff' : '#94A3B8',
+                    }}
+                  >
+                    {savedIds.has(task.id) ? '★' : '☆'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
       <style>{`
-        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-        ::-webkit-scrollbar{width:4px;height:4px}
-        ::-webkit-scrollbar-thumb{background:#D8DEE9;border-radius:99px}
-        .skeleton{background:linear-gradient(90deg,#F4F6F9 25%,#E8EEF7 50%,#F4F6F9 75%);background-size:200%;animation:shimmer 1.4s infinite;border-radius:6px}
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        @keyframes shimmer {
+          0%   { background-color: #E2E8F0; }
+          50%  { background-color: #F1F5F9; }
+          100% { background-color: #E2E8F0; }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   )
 }
-=======
-// Dashboard.jsx - صفحة الرادار الرئيسية
-// قلب التطبيق: عرض المهام المباشرة والفلترة
-// ===================================================
-import React, { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
-import Navbar from '../components/layout/Navbar.jsx'
-import LiveFeed from '../components/radar/LiveFeed.jsx'
-import FilterPanel from '../components/radar/FilterPanel.jsx'
-import Sidebar from '../components/layout/Sidebar.jsx'
-import { taskService } from '../services/taskService.js'
-import { useSocket } from '../hooks/useSocket.js'
-import { useNotifications } from '../hooks/useNotifications.js'
-
-function Dashboard() {
-  const { t } = useTranslation()
-  const [activeSource, setActiveSource]     = useState('all')
-  const [selectedSkills, setSelectedSkills] = useState([])
-  
-  // الاتصال بالـ WebSocket لاستقبال المهام الجديدة
-  const { isConnected, newTasks } = useSocket()
-  const { requestPermission, sendNotification } = useNotifications()
-
-  // طلب إذن الإشعارات عند فتح الصفحة
-  useEffect(() => { requestPermission() }, [])
-
-  // إرسال إشعار عند ظهور مهام جديدة
-  useEffect(() => {
-    newTasks.forEach(task => sendNotification(task))
-  }, [newTasks])
-
-  // جلب المهام من الـ Backend
-  const { data, isLoading } = useQuery({
-    queryKey: ['tasks', activeSource, selectedSkills],
-    queryFn: () => taskService.getTasks({ source: activeSource, skills: selectedSkills }),
-    refetchInterval: 30000, // تحديث كل 30 ثانية كـ backup للـ WebSocket
-  })
-
-  // دمج المهام الجديدة من الـ WebSocket مع القديمة
-  const allTasks = [...(newTasks || []), ...(data?.data?.tasks || [])]
-
-  // تبديل اختيار المهارة
-  const handleSkillToggle = (skill) => {
-    setSelectedSkills(prev =>
-      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
-    )
-  }
-
-  return (
-    <div className="page-container">
-      <Navbar />
-      
-      <div className="flex h-[calc(100vh-64px)]">
-        {/* الشريط الجانبي للفلترة */}
-        <Sidebar selectedSkills={selectedSkills} onSkillToggle={handleSkillToggle} />
-        
-        {/* المنطقة الرئيسية */}
-        <main className="flex-1 overflow-y-auto p-6">
-          
-          {/* رأس الرادار */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-black text-white">
-                📡 {t('radar.title')}
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`live-dot ${isConnected ? '' : 'bg-neon-red!'}`}></span>
-                <span className="text-xs text-gray-400">
-                  {isConnected ? t('radar.live') : 'غير متصل'}
-                </span>
-                <span className="text-xs text-gray-600">•</span>
-                <span className="text-xs text-gray-400">
-                  {allTasks.length} {t('radar.tasks_found')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* فلتر المصادر */}
-          <div className="mb-4">
-            <FilterPanel activeSource={activeSource} onSourceChange={setActiveSource} />
-          </div>
-
-          {/* قائمة المهام */}
-          <LiveFeed tasks={allTasks} isLoading={isLoading} />
-        </main>
-      </div>
-    </div>
-  )
-}
-
-export default Dashboard
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

@@ -1,279 +1,181 @@
-// ===================================================
-<<<<<<< HEAD
-// TaskDetail.jsx — Pillar 3+4: Gemini JSON Proposal + Source URL
-// المسار: frontend/src/pages/TaskDetail.jsx
-// ===================================================
-
-import React, { useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import Navbar from '../components/layout/Navbar.jsx'
-import { useAuth } from '../context/AuthContext.jsx'
-import { useLanguage } from '../context/LanguageContext.jsx'
-import { MOCK_TASKS, SOURCE_CONFIG } from '../data/mockTasks.js'
-import api from '../services/api.js'
+// TaskDetail.jsx — full task view with AI proposal generation
+import React, { useState, useEffect } from 'react'
+import ErrorBoundary from '../components/ui/ErrorBoundary.jsx'
+import { useParams, useNavigate }      from 'react-router-dom'
+import { useAuth }                     from '../context/AuthContext.jsx'
+import { useLanguage }                 from '../context/LanguageContext.jsx'
+import { taskService }                 from '../services/taskService.js'
+import { aiService }                   from '../services/aiService.js'
+import { formatDate }                  from '../utils/formatDate.js'
 
 export default function TaskDetail() {
-  const { id }    = useParams()
-  const navigate  = useNavigate()
-  const { user }  = useAuth()
-  const { isRTL } = useLanguage()
+  const { id }             = useParams()
+  const { user }           = useAuth()
+  const { isRTL, language } = useLanguage()
+  const navigate           = useNavigate()
 
-  const task = MOCK_TASKS.find(t => t.id === id) || MOCK_TASKS[0]
-  const src  = SOURCE_CONFIG[task?.source] || SOURCE_CONFIG.rss
+  const [task,     setTask]     = useState(null)
+  const [loading,  setLoading]  = useState(true)
+  const [proposal, setProposal] = useState(null)
+  const [propLang, setPropLang] = useState(language || 'ar')
+  const [genLoading, setGenLoading] = useState(false)
+  const [copied,   setCopied]   = useState(false)
+  const [error,    setError]    = useState('')
 
-  // Pillar 3: proposal هو الآن { ar, en, highlights }
-  const [proposal,    setProposal]    = useState(null)
-  const [propLang,    setPropLang]    = useState('ar')
-  const [generating,  setGenerating]  = useState(false)
-  const [copied,      setCopied]      = useState(false)
-  const [activeView,  setActiveView]  = useState('ar') // ar | en
+  useEffect(() => {
+    setLoading(true)
+    taskService.getTaskById(id)
+      .then(r => setTask(r.data))
+      .catch(() => setError(isRTL ? 'لم يتم العثور على المهمة' : 'Task not found'))
+      .finally(() => setLoading(false))
+  }, [id])
 
-  const generate = useCallback(async (lang) => {
-    setPropLang(lang); setGenerating(true); setProposal(null); setActiveView(lang)
+  const generateProposal = async () => {
+    setGenLoading(true)
+    setError('')
     try {
-      const { data } = await api.post('/ai/proposal', { taskId: task?.id, language: lang })
-      if (data?.proposal) setProposal(data.proposal)
-      else throw new Error('no proposal')
-    } catch {
-      // fallback
-      setProposal({
-        ar: `لقد اطلعت على طلبك بخصوص "${task?.title}" ولدي خبرة قوية في ${task?.skills?.slice(0,2).join(' و')}. سأبدأ العمل فور الاتفاق وأسلّم بجودة عالية في الوقت المحدد.`,
-        en: `I reviewed your request for "${task?.title}" and I have strong experience in ${task?.skills?.slice(0,2).join(' & ')}. I'll start immediately upon agreement and deliver high-quality work on time.`,
-        highlights: [isRTL?'تسليم سريع':'Fast Delivery', isRTL?'جودة عالية':'High Quality', isRTL?'تواصل مستمر':'Constant Communication'],
-      })
-    } finally { setGenerating(false) }
-  }, [task, isRTL])
-
-  const copy = () => {
-    const txt = proposal ? (activeView === 'ar' ? proposal.ar : proposal.en) : ''
-    navigator.clipboard.writeText(txt)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+      const r = await aiService.generateProposal(id, propLang)
+      setProposal(r.data.proposal)
+    } catch (e) {
+      setError(e.response?.data?.message || (isRTL ? 'فشل توليد المقترح' : 'Proposal generation failed'))
+    } finally {
+      setGenLoading(false)
+    }
   }
 
-  // Pillar 4: الرابط من قاعدة البيانات
-  const srcUrl = task?.url || task?.sourceUrl
+  const copyProposal = () => {
+    const text = proposal
+      ? (typeof proposal === 'object' ? (proposal[propLang] || proposal.ar) : proposal)
+      : ''
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const S = {
+    root:    { minHeight: '100vh', background: '#F4F6F9', padding: 'clamp(.75rem, 4vw, 2rem)', fontFamily: 'Plus Jakarta Sans, Cairo, sans-serif', direction: isRTL ? 'rtl' : 'ltr' },
+    inner:   { maxWidth: 760, margin: '0 auto' },
+    back:    { fontSize: '.85rem', color: '#5A6478', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '.35rem', marginBottom: '1.25rem', background: 'none', border: 'none', padding: 0 },
+    card:    { background: '#fff', borderRadius: 14, padding: '1.75rem', boxShadow: '0 2px 12px rgba(0,45,98,.07)', border: '1px solid #E2E8F0', marginBottom: '1.25rem' },
+    title:   { fontSize: '1.35rem', fontWeight: 800, color: '#1E293B', margin: '0 0 .6rem' },
+    meta:    { display: 'flex', flexWrap: 'wrap', gap: '.5rem', marginBottom: '1rem', alignItems: 'center' },
+    badge:   (bg, c, b) => ({ fontSize: '.75rem', fontWeight: 600, padding: '.25rem .65rem', borderRadius: 99, background: bg, color: c, border: `1px solid ${b}` }),
+    desc:    { fontSize: '.9rem', color: '#334155', lineHeight: 1.7, margin: '1rem 0', whiteSpace: 'pre-wrap' },
+    skills:  { display: 'flex', flexWrap: 'wrap', gap: '.35rem', margin: '1rem 0' },
+    skill:   { fontSize: '.8rem', padding: '.25rem .65rem', borderRadius: 99, background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' },
+    link:    { display: 'inline-flex', alignItems: 'center', gap: '.3rem', fontSize: '.85rem', color: '#2563EB', textDecoration: 'none', fontWeight: 600, marginTop: '.5rem' },
+    aiCard:  { background: '#fff', borderRadius: 14, padding: '1.75rem', boxShadow: '0 2px 12px rgba(0,45,98,.07)', border: '1px solid #E2E8F0' },
+    aiTitle: { fontSize: '1rem', fontWeight: 800, color: '#002D62', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '.4rem' },
+    langRow: { display: 'flex', gap: '.5rem', marginBottom: '1rem', flexWrap: 'wrap' },
+    langBtn: (a) => ({ padding: '.4rem 1rem', borderRadius: 7, border: `1.5px solid ${a ? '#002D62' : '#D8DEE9'}`, background: a ? '#002D62' : '#fff', color: a ? '#fff' : '#5A6478', fontWeight: a ? 700 : 500, fontSize: '.85rem', cursor: 'pointer' }),
+    genBtn:  { width: '100%', padding: '.85rem', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#002D62,#1D4ED8)', color: '#fff', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', transition: 'opacity .15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.5rem' },
+    propBox: { background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '1.25rem', marginTop: '1rem', fontSize: '.9rem', color: '#1E293B', lineHeight: 1.75, whiteSpace: 'pre-wrap' },
+    copyBtn: { marginTop: '.75rem', padding: '.55rem 1.25rem', borderRadius: 8, border: '1.5px solid #002D62', background: 'transparent', color: '#002D62', fontWeight: 600, fontSize: '.85rem', cursor: 'pointer' },
+    highlight: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.75rem' },
+    hTag:    { fontSize: '.78rem', padding: '.2rem .6rem', borderRadius: 99, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' },
+    err:     { color: '#DC2626', fontSize: '.85rem', marginTop: '.75rem', textAlign: 'center' },
+  }
+
+  if (loading) return (
+    <div style={S.root}>
+      <div style={S.inner}>
+        <div style={{ width:80, height:14, background:'#E2E8F0', borderRadius:6, marginBottom:'1.5rem', animation:'shimmer 1.4s infinite'}}/>
+        <div style={{ background:'#fff', borderRadius:14, padding:'1.75rem', border:'1px solid #E2E8F0', marginBottom:'1.25rem' }}>
+          <div style={{ background:'#E2E8F0', height:22, width:'70%', borderRadius:6, marginBottom:12, animation:'shimmer 1.4s infinite'}}/>
+          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+            {[60,80,100].map(w=><div key={w} style={{ background:'#E2E8F0', height:24, width:w, borderRadius:99, animation:'shimmer 1.4s infinite'}}/>)}
+          </div>
+          {[100,85,90,60].map((w,i)=><div key={i} style={{ background:'#E2E8F0', height:12, width:w+'%', borderRadius:6, marginBottom:8, animation:'shimmer 1.4s infinite'}}/>)}
+        </div>
+        <div style={{ background:'#fff', borderRadius:14, padding:'1.75rem', border:'1px solid #E2E8F0', height:160, animation:'shimmer 1.4s infinite'}}/>
+      </div>
+      <style>{`@keyframes shimmer{0%,100%{opacity:1}50%{opacity:.5}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
+
+  if (!task) return (
+    <div style={S.root}>
+      <div style={S.inner}>
+        <p style={{ color: '#DC2626', textAlign: 'center' }}>{error || (isRTL ? 'المهمة غير موجودة' : 'Task not found')}</p>
+        <button style={S.back} onClick={() => navigate('/dashboard')}>← {isRTL ? 'الرادار' : 'Radar'}</button>
+      </div>
+    </div>
+  )
+
+  const proposalText = proposal
+    ? (typeof proposal === 'object' ? (proposal[propLang] || proposal.ar || '') : proposal)
+    : ''
 
   return (
-    <div style={{ background:'#F4F6F9', minHeight:'100vh', overflowX:'hidden' }} dir={isRTL?'rtl':'ltr'}>
-      <Navbar />
-      <div style={{ maxWidth:1100, margin:'0 auto', padding:'2rem 1.5rem 4rem' }}>
-
-        <button onClick={()=>navigate('/dashboard')} style={{ background:'none', border:'1px solid #D8DEE9', borderRadius:8, padding:'.38rem .85rem', fontSize:'.82rem', color:'#5A6478', cursor:'pointer', marginBottom:'1.5rem', display:'flex', alignItems:'center', gap:'.35rem', transition:'all .15s' }}
-          onMouseEnter={e=>{ e.currentTarget.style.borderColor='#002D62'; e.currentTarget.style.color='#002D62' }}
-          onMouseLeave={e=>{ e.currentTarget.style.borderColor='#D8DEE9'; e.currentTarget.style.color='#5A6478' }}>
-          {isRTL?'→ الرادار':'← Radar'}
+    <div style={S.root}>
+      <div style={S.inner}>
+        <button style={S.back} onClick={() => navigate('/dashboard')}>
+          ← {isRTL ? 'العودة للرادار' : 'Back to Radar'}
         </button>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.25rem', alignItems:'start' }}>
-
-          {/* تفاصيل المهمة */}
-          <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:16, padding:'1.75rem', boxShadow:'0 1px 4px rgba(0,45,98,.06)' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:'.5rem', marginBottom:'1rem', flexWrap:'wrap' }}>
-              <span style={{ fontSize:'.72rem', fontWeight:700, padding:'.22rem .65rem', borderRadius:99, color:src.color, background:`${src.color}15`, border:`1px solid ${src.color}30` }}>{src.emoji} {src.label}</span>
-              <span style={{ fontSize:'.72rem', color:'#94A3B8', marginInlineStart:'auto' }}>{task?.postedAt}</span>
+        {/* Task card */}
+        <div style={S.card}>
+          <h1 style={S.title}>{task.title}</h1>
+          <div style={S.meta}>
+            <span style={S.badge('#EBF8FF','#2B6CB0','#BEE3F8')}>{task.source}</span>
+            {task.budget && <span style={S.badge('#F0FFF4','#276749','#9AE6B4')}>💰 {task.budget}</span>}
+            <span style={S.badge('#F1F5F9','#475569','#E2E8F0')}>{formatDate(task.postedAt, language)}</span>
+          </div>
+          {task.description && <p style={S.desc}>{task.description}</p>}
+          {task.skills?.length > 0 && (
+            <div style={S.skills}>
+              {task.skills.map(s => <span key={s} style={S.skill}>{s}</span>)}
             </div>
+          )}
+          {task.url && (
+            <a href={task.url} target="_blank" rel="noopener noreferrer" style={S.link}>
+              🔗 {isRTL ? 'عرض المهمة الأصلية' : 'View Original Task'} ↗
+            </a>
+          )}
+        </div>
 
-            <h1 style={{ fontSize:'1.15rem', fontWeight:800, color:'#002D62', marginBottom:'1rem', lineHeight:1.4 }}>{task?.title}</h1>
+        {/* AI Proposal */}
+        <div style={S.aiCard}>
+          <h2 style={S.aiTitle}>🤖 {isRTL ? 'مولّد المقترح الذكي' : 'AI Proposal Generator'}</h2>
 
-            <div style={{ background:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:10, padding:'1rem 1.1rem', marginBottom:'1.25rem' }}>
-              <p style={{ fontSize:'.875rem', color:'#5A6478', lineHeight:1.8, margin:0, whiteSpace:'pre-line' }}>{task?.description}</p>
-            </div>
+          <div style={S.langRow}>
+            <button style={S.langBtn(propLang === 'ar')} onClick={() => setPropLang('ar')}>🇸🇦 عربي</button>
+            <button style={S.langBtn(propLang === 'en')} onClick={() => setPropLang('en')}>🇬🇧 English</button>
+          </div>
 
-            <div style={{ marginBottom:'1.25rem' }}>
-              <p style={{ fontSize:'.7rem', fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'#94A3B8', marginBottom:'.5rem' }}>{isRTL?'المهارات المطلوبة':'Required Skills'}</p>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:'.35rem' }}>
-                {task?.skills?.map(s => <span key={s} style={{ fontSize:'.75rem', fontWeight:600, padding:'.25rem .65rem', borderRadius:99, background:'#E8EEF7', border:'1px solid #C5D3E8', color:'#002D62' }}>{s}</span>)}
-              </div>
-            </div>
+          <button
+            style={{ ...S.genBtn, opacity: genLoading ? .6 : 1 }}
+            onClick={generateProposal}
+            disabled={genLoading}
+          >
+            {genLoading
+              ? <><Spinner/> {isRTL ? 'يُولّد Gemini مقترحك...' : 'Gemini is writing your proposal...'}</>
+              : `🚀 ${isRTL ? 'ولّد مقترحاً احترافياً' : 'Generate Professional Proposal'}`}
+          </button>
 
-            <div style={{ paddingTop:'1rem', borderTop:'1px solid #E2E8F0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'.75rem' }}>
-              <div>
-                <p style={{ fontSize:'.7rem', fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'#94A3B8', margin:'0 0 .25rem' }}>{isRTL?'الميزانية':'Budget'}</p>
-                <p style={{ fontFamily:'JetBrains Mono,monospace', fontSize:'1.1rem', fontWeight:800, color:'#28A745', margin:0 }}>{task?.budget||(isRTL?'مفتوح':'Open')}</p>
-              </div>
-              {/* Pillar 4: رابط المصدر الحقيقي */}
-              {srcUrl && srcUrl !== '#' && (
-                <a href={srcUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ display:'inline-flex', alignItems:'center', gap:'.4rem', fontSize:'.82rem', fontWeight:700, padding:'.42rem .95rem', borderRadius:8, background:'#E8EEF7', border:'1px solid #C5D3E8', color:'#002D62', textDecoration:'none', transition:'all .15s' }}
-                  onMouseEnter={e=>{ e.currentTarget.style.background='#002D62'; e.currentTarget.style.color='#fff' }}
-                  onMouseLeave={e=>{ e.currentTarget.style.background='#E8EEF7'; e.currentTarget.style.color='#002D62' }}>
-                  🔗 {isRTL?'المصدر الأصلي':'Original Source'} ↗
-                </a>
+          {error && <p style={S.err}>{error}</p>}
+
+          {proposal && (
+            <>
+              <div style={S.propBox} dir={propLang === 'ar' ? 'rtl' : 'ltr'}>{proposalText}</div>
+              {typeof proposal === 'object' && proposal.highlights?.length > 0 && (
+                <div style={S.highlight}>
+                  {proposal.highlights.map((h, i) => <span key={i} style={S.hTag}>✓ {h}</span>)}
+                </div>
               )}
-            </div>
-          </div>
-
-          {/* مولّد البروبوزال */}
-          <div style={{ background:'#fff', border:'1px solid #D8DEE9', borderRadius:16, padding:'1.75rem', boxShadow:'0 1px 4px rgba(0,45,98,.06)' }}>
-            <h2 style={{ fontSize:'1rem', fontWeight:800, color:'#002D62', marginBottom:'.35rem' }}>🤖 {isRTL?'مولّد العروض بالذكاء الاصطناعي':'AI Proposal Engine'}</h2>
-            <p style={{ fontSize:'.82rem', color:'#5A6478', marginBottom:'1.25rem', lineHeight:1.6 }}>
-              {isRTL?'يولّد عرضاً احترافياً بالعربية والإنجليزية معاً في ثوانٍ':'Generates a professional proposal in both Arabic & English in seconds'}
-            </p>
-
-            <div style={{ display:'flex', gap:'.65rem', marginBottom:'1.25rem', flexWrap:'wrap' }}>
-              <button onClick={()=>generate('ar')} disabled={generating}
-                style={{ flex:1, minWidth:130, padding:'.65rem 1rem', borderRadius:9, background:'#002D62', color:'#fff', fontWeight:700, fontSize:'.85rem', border:'none', cursor:generating?'not-allowed':'pointer', opacity:generating&&propLang==='ar'?.6:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem' }}>
-                {generating&&propLang==='ar'?<><Spinner/>جاري...</>:'✍️ عرض بالعربية'}
+              <button style={S.copyBtn} onClick={copyProposal}>
+                {copied ? '✅ ' + (isRTL ? 'تم النسخ' : 'Copied!') : '📋 ' + (isRTL ? 'نسخ المقترح' : 'Copy Proposal')}
               </button>
-              <button onClick={()=>generate('en')} disabled={generating}
-                style={{ flex:1, minWidth:130, padding:'.65rem 1rem', borderRadius:9, background:'transparent', color:'#002D62', fontWeight:700, fontSize:'.85rem', border:'1.5px solid #002D62', cursor:generating?'not-allowed':'pointer', opacity:generating&&propLang==='en'?.6:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'.4rem' }}>
-                {generating&&propLang==='en'?<><Spinner color="#002D62"/>Generating...</>:'✍️ English Proposal'}
-              </button>
-            </div>
-
-            {generating && (
-              <div style={{ textAlign:'center', padding:'2.5rem 1rem', color:'#002D62' }}>
-                <div style={{ display:'flex', gap:'.3rem', justifyContent:'center', marginBottom:'.75rem' }}>
-                  {[0,1,2].map(i=><span key={i} style={{ width:8, height:8, borderRadius:'50%', background:'#002D62', display:'inline-block', animation:`dot 1.2s ease-in-out ${i*.2}s infinite` }} />)}
-                </div>
-                <p style={{ fontSize:'.85rem', margin:0 }}>{isRTL?'Gemini يصيغ عرضك المخصص...':'Gemini is crafting your custom proposal...'}</p>
-              </div>
-            )}
-
-            {proposal && !generating && (
-              <div>
-                {/* Highlights */}
-                {proposal.highlights?.length > 0 && (
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:'.4rem', marginBottom:'1rem' }}>
-                    {proposal.highlights.map((h,i) => (
-                      <span key={i} style={{ fontSize:'.72rem', fontWeight:700, padding:'.22rem .65rem', borderRadius:99, background:'#E8EEF7', border:'1px solid #C5D3E8', color:'#002D62' }}>✦ {h}</span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Language tabs */}
-                <div style={{ display:'flex', gap:'.35rem', marginBottom:'.75rem' }}>
-                  {['ar','en'].map(l => (
-                    <button key={l} onClick={()=>setActiveView(l)} style={{ padding:'.35rem .9rem', borderRadius:7, fontSize:'.78rem', fontWeight:activeView===l?700:500, border:'none', cursor:'pointer', background:activeView===l?'#002D62':'#F4F6F9', color:activeView===l?'#fff':'#5A6478', transition:'all .15s' }}>
-                      {l==='ar'?'🇸🇦 عربي':'🇺🇸 English'}
-                    </button>
-                  ))}
-                  <button onClick={copy} style={{ marginInlineStart:'auto', fontSize:'.75rem', fontWeight:700, padding:'.3rem .75rem', border:'1px solid #D8DEE9', borderRadius:7, background:copied?'#F0FDF4':'transparent', color:copied?'#28A745':'#5A6478', cursor:'pointer', transition:'all .2s' }}>
-                    {copied?(isRTL?'✅ تم النسخ':'✅ Copied'):(isRTL?'📋 نسخ':'📋 Copy')}
-                  </button>
-                </div>
-
-                <textarea readOnly value={activeView==='ar'?proposal.ar:proposal.en} rows={10}
-                  dir={activeView==='ar'?'rtl':'ltr'}
-                  style={{ width:'100%', background:'#F8FAFC', border:'1px solid #D8DEE9', borderRadius:10, padding:'.9rem', fontSize:'.875rem', color:'#1A1A2E', lineHeight:1.8, resize:'vertical', outline:'none', fontFamily:'inherit', minHeight:200, boxSizing:'border-box' }} />
-              </div>
-            )}
-
-            {!proposal && !generating && (
-              <div style={{ border:'1.5px dashed #D8DEE9', borderRadius:10, padding:'3rem 1rem', textAlign:'center', color:'#94A3B8' }}>
-                <div style={{ fontSize:'2rem', marginBottom:'.5rem' }}>✦</div>
-                <p style={{ fontSize:'.85rem', margin:0 }}>{isRTL?'اضغط أحد الأزرار أعلاه للتوليد':'Press a button above to generate'}</p>
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
-      <style>{`
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes dot{0%,80%,100%{transform:scale(.6);opacity:.35}40%{transform:scale(1);opacity:1}}
-        @media(max-width:900px){.td-grid{grid-template-columns:1fr!important}}
-      `}</style>
-=======
-// TaskDetail.jsx - صفحة تفاصيل المهمة + البروبوزال
-// ===================================================
-import React from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
-import Navbar from '../components/layout/Navbar.jsx'
-import ProposalGenerator from '../components/proposal/ProposalGenerator.jsx'
-import Badge from '../components/ui/Badge.jsx'
-import Button from '../components/ui/Button.jsx'
-import { taskService } from '../services/taskService.js'
-
-function TaskDetail() {
-  const { id } = useParams()
-  const { t } = useTranslation()
-  const navigate = useNavigate()
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['task', id],
-    queryFn: () => taskService.getTaskById(id),
-  })
-
-  const task = data?.data
-
-  if (isLoading) {
-    return (
-      <div className="page-container">
-        <Navbar />
-        <div className="flex items-center justify-center h-[80vh] text-brand-cyan animate-pulse">
-          {t('common.loading')}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="page-container">
-      <Navbar />
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        
-        {/* زر الرجوع */}
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mb-6">
-          ← {t('common.back')}
-        </Button>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* تفاصيل المهمة */}
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Badge color="cyan">{task?.source}</Badge>
-              <span className="text-xs text-gray-500">{task?.postedAt}</span>
-            </div>
-            
-            <h1 className="text-xl font-black text-white mb-4">{task?.title}</h1>
-            <p className="text-gray-400 leading-relaxed mb-6">{task?.description}</p>
-            
-            <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-2">{t('radar.skills')}</p>
-              <div className="flex flex-wrap gap-2">
-                {task?.skills?.map(skill => (
-                  <Badge key={skill} color="purple">{skill}</Badge>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-brand-border">
-              <p className="text-xs text-gray-500">{t('radar.budget')}</p>
-              <p className="text-neon-green font-mono font-bold text-lg mt-1">
-                {task?.budget || '---'}
-              </p>
-            </div>
-
-            {/* رابط المصدر الأصلي */}
-            {task?.url && (
-              <a
-                href={task.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-block text-sm text-brand-cyan hover:underline"
-              >
-                عرض المصدر الأصلي ↗
-              </a>
-            )}
-          </div>
-
-          {/* مولد البروبوزال */}
-          <ProposalGenerator taskId={id} />
-        </div>
-      </div>
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }
 
-<<<<<<< HEAD
-function Spinner({ color='#fff' }) {
-  return <span style={{ width:14, height:14, border:`2px solid ${color}40`, borderTopColor:color, borderRadius:'50%', animation:'spin .7s linear infinite', display:'inline-block', flexShrink:0 }} />
+function Spinner({ color = '#fff' }) {
+  return <span style={{ width: 14, height: 14, border: `2px solid ${color}40`, borderTopColor: color, borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block', flexShrink: 0 }} />
 }
-=======
-export default TaskDetail
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

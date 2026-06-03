@@ -1,44 +1,19 @@
-// ===================================================
-<<<<<<< HEAD
-// formatDate.js — تنسيق التواريخ
-// المسار: frontend/src/utils/formatDate.js
-// ===================================================
+export function formatDate(dateStr, lang = 'en') {
+  try {
+    const date   = new Date(dateStr)
+    const locale = lang === 'ar' ? 'ar-SA' : 'en-US'
+    const now    = Date.now()
+    const diff   = now - date.getTime()
+    const mins   = Math.floor(diff / 60000)
+    const hours  = Math.floor(diff / 3600000)
+    const days   = Math.floor(diff / 86400000)
 
-export function timeAgo(dateString, lang = 'ar') {
-  const now  = new Date()
-  const date = new Date(dateString)
-  const diff = Math.floor((now - date) / 1000)
-
-  if (lang === 'ar') {
-    if (diff < 60)    return 'منذ لحظات'
-    if (diff < 3600)  return `منذ ${Math.floor(diff / 60)} دقيقة`
-    if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} ساعة`
-    return `منذ ${Math.floor(diff / 86400)} يوم`
+    if (mins < 1)   return lang === 'ar' ? 'الآن'                : 'Just now'
+    if (mins < 60)  return lang === 'ar' ? `منذ ${mins} دقيقة`  : `${mins}m ago`
+    if (hours < 24) return lang === 'ar' ? `منذ ${hours} ساعة`  : `${hours}h ago`
+    if (days < 7)   return lang === 'ar' ? `منذ ${days} أيام`   : `${days}d ago`
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+  } catch {
+    return dateStr || ''
   }
-  if (diff < 60)    return 'just now'
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
-=======
-// formatDate.js - دوال تنسيق التاريخ والوقت
-// ===================================================
-
-// تحويل التاريخ إلى صيغة "منذ X دقائق"
-export function timeAgo(dateString, lang = 'ar') {
-  const now  = new Date()
-  const date = new Date(dateString)
-  const diff = Math.floor((now - date) / 1000) // الفرق بالثواني
-
-  if (lang === 'ar') {
-    if (diff < 60)   return 'منذ لحظات'
-    if (diff < 3600) return `منذ ${Math.floor(diff / 60)} دقيقة`
-    if (diff < 86400) return `منذ ${Math.floor(diff / 3600)} ساعة`
-    return `منذ ${Math.floor(diff / 86400)} يوم`
-  } else {
-    if (diff < 60)   return 'just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-    return `${Math.floor(diff / 86400)}d ago`
-  }
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 }

@@ -1,65 +1,32 @@
-<<<<<<< HEAD
-# ===================================================
-# .gitignore — ملفات يجب ألا تُرفع على GitHub
-# ===================================================
-
-# Dependencies
+# Dependencies — never commit
 node_modules/
-.pnp
-.pnp.js
+backend/node_modules/
+frontend/node_modules/
 
-# Build output
-dist/
-build/
-.next/
-
-# Environment variables — مهم جداً!
+# Environment secrets — NEVER commit real .env files
 .env
 .env.local
-.env.production
 .env.*.local
+backend/.env
+frontend/.env
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# Prisma generated
+backend/node_modules/.prisma/
+backend/src/generated/
 
 # Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Editor
-.vscode/settings.json
-.idea/
-*.swp
-*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Prisma
-*.db
-*.db-journal
-
-# Cache
-.cache/
-.parcel-cache/
-=======
-# البيئات والإعدادات الخاصة
-node_modules/
-.env
-.env.local
-.env.production
-
-# ملفات البناء
-dist/
-build/
-
-# ملفات النظام
-.DS_Store
-Thumbs.db
-
-# ملفات VS Code
-.vscode/settings.json
-
-# Prisma
-*.db
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+# IDE
+.idea/
+.vscode/
+*.swp

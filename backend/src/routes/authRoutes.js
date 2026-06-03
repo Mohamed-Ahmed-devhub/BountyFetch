@@ -1,34 +1,16 @@
-// ===================================================
-<<<<<<< HEAD
-// authRoutes.js — مسارات المصادقة والملف الشخصي
-// المسار: backend/src/routes/authRoutes.js
-// ===================================================
+const express  = require('express')
+const router   = express.Router()
+const auth     = require('../middleware/authMiddleware')
+const ctrl     = require('../controllers/authController')
+const { validators } = require('../middleware/validate')
 
-const express        = require('express')
-const router         = express.Router()
-const authController = require('../controllers/authController')
-const auth           = require('../middleware/authMiddleware')
+// POST /api/auth/supabase-sync — called on SIGNED_IN event
+router.post('/supabase-sync', validators.syncToken, ctrl.supabaseSync)
 
-// ── Public ──
-router.post('/supabase-sync', authController.supabaseSync)
-
-// ── Protected ──
-router.get('/profile',                auth, authController.getProfile)
-router.put('/profile',                auth, authController.updateProfile)
-router.put('/skills',                 auth, authController.updateSkills)
-router.post('/avatar', auth, authController.uploadMiddleware, authController.uploadAvatar)
-=======
-// authRoutes.js - مسارات التسجيل والدخول
-// ===================================================
-const express        = require('express')
-const router         = express.Router()
-const authController = require('../controllers/authController')
-const authMiddleware = require('../middleware/authMiddleware')
-
-router.post('/register', authController.register)  // POST /api/auth/register
-router.post('/login',    authController.login)     // POST /api/auth/login
-router.get('/profile',   authMiddleware, authController.getProfile) // يحتاج token
-router.put('/skills',    authMiddleware, authController.updateSkills)
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
+// Profile (protected)
+router.get('/profile',          auth, ctrl.getProfile)
+router.put('/profile',          auth, validators.updateProfile, ctrl.updateProfile)
+router.put('/skills',           auth, validators.updateSkills,  ctrl.updateSkills)
+router.post('/avatar',          auth, ctrl.uploadMiddleware, ctrl.uploadAvatar)
 
 module.exports = router

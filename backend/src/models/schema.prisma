@@ -1,11 +1,4 @@
-<<<<<<< HEAD
 // schema.prisma — BountyFetch v3 — Production Ready
-=======
-// ===================================================
-// schema.prisma - تصميم قاعدة البيانات
-// ===================================================
-
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,7 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-<<<<<<< HEAD
 model User {
   id              String   @id
   name            String
@@ -61,41 +53,10 @@ model Task {
   @@map("tasks")
 }
 
-=======
-// جدول المستخدمين
-model User {
-  id         String      @id @default(cuid())
-  name       String
-  email      String      @unique
-  password   String
-  skills     String[]    // مصفوفة المهارات
-  createdAt  DateTime    @default(now())
-  
-  savedTasks SavedTask[]
-}
-
-// جدول المهام المصطادة
-model Task {
-  id          String      @id @default(cuid())
-  externalId  String      @unique // الـ ID من المصدر الأصلي
-  title       String
-  description String      @db.Text
-  skills      String[]
-  budget      String?
-  source      String      // telegram | reddit | twitter | rss
-  url         String?
-  postedAt    DateTime    @default(now())
-  
-  savedBy     SavedTask[]
-}
-
-// جدول المهام المحفوظة (علاقة Many-to-Many)
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 model SavedTask {
   userId  String
   taskId  String
   savedAt DateTime @default(now())
-<<<<<<< HEAD
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -153,11 +114,4 @@ model Ticket {
   @@index([userId])
   @@index([status])
   @@map("tickets")
-=======
-  
-  user    User @relation(fields: [userId], references: [id])
-  task    Task @relation(fields: [taskId], references: [id])
-  
-  @@id([userId, taskId]) // مفتاح مركب - منع الحفظ المكرر
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 }

@@ -1,176 +1,73 @@
-// ===================================================
-<<<<<<< HEAD
-// telegramScraper.js — جمع المهام من تيليجرام
-// يستخدم Telegram Bot API القانوني
-// المسار: backend/src/services/scrapers/telegramScraper.js
-// ===================================================
-
-const { Telegraf } = require("telegraf");
-const { prisma } = require("../../config/database");
-const { broadcastTask } = require("../../config/socket");
-const { isTaskPost, extractTaskData } = require("../aiService");
-
-let bot = null;
-
-/**
- * يبدأ تشغيل بوت تيليجرام ويستمع للرسائل في القنوات
- */
-async function startTelegramScraper() {
-  if (
-    !process.env.TELEGRAM_BOT_TOKEN ||
-    process.env.TELEGRAM_BOT_TOKEN === "disabled" ||
-    process.env.TELEGRAM_BOT_TOKEN === "your_telegram_bot_token_here"
-  ) {
-    console.log("⚠️  Telegram معطّل");
-    return;
-  }
-
-  try {
-    bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-
-    // ── استماع لكل الرسائل ──
-    bot.on("message", async (ctx) => {
-      await processMessage(ctx.message, ctx.chat);
-    });
-
-    // استماع لمنشورات القنوات
-    bot.on("channel_post", async (ctx) => {
-      await processMessage(ctx.channelPost, ctx.chat);
-    });
-
-    // بدء البوت
-    bot.launch();
-
-    // إيقاف نظيف عند إغلاق السيرفر
-    process.once("SIGINT", () => bot.stop("SIGINT"));
-    process.once("SIGTERM", () => bot.stop("SIGTERM"));
-
-    console.log("📡 Telegram Scraper يعمل — يراقب الرسائل");
-  } catch (error) {
-    console.error("❌ فشل تشغيل Telegram Bot:", error.message);
-  }
-}
-
-/**
- * يعالج رسالة واحدة من تيليجرام
- */
-async function processMessage(message, chat) {
-  if (!message) return;
-
-  const text = message.text || message.caption || "";
-  if (text.length < 30) return; // رسائل قصيرة جداً لا تستحق الفلترة
-
-  try {
-    // فلترة بالذكاء الاصطناعي
-    const isTask = await isTaskPost(text);
-    if (!isTask) return;
-
-    // استخراج بيانات المهمة
-    const taskData = await extractTaskData(text, "telegram");
-
-    // بناء الـ URL
-    const chatUsername = chat?.username;
-    const messageId = message.message_id;
-    const url = chatUsername
-      ? `https://t.me/${chatUsername}/${messageId}`
-      : null;
-
-    // حفظ في قاعدة البيانات (upsert يمنع التكرار)
-    const savedTask = await prisma.task.upsert({
-      where: { externalId: `tg_${messageId}` },
-      update: {}, // إذا موجود — لا تحدّث
-      create: {
-        externalId: `tg_${messageId}`,
-        title: taskData.title,
-        description: text.slice(0, 1000),
-        skills: taskData.skills || [],
-        budget: taskData.budget,
-        source: "telegram",
-        url,
-        postedAt: new Date(message.date * 1000), // Telegram يرسل Unix timestamp
-      },
-    });
-
-    // إرسال المهمة الجديدة لجميع المستخدمين المتصلين عبر WebSocket
-    broadcastTask(savedTask);
-    console.log(`✅ [Telegram] مهمة جديدة: ${savedTask.title.slice(0, 50)}`);
-  } catch (error) {
-    // تجاهل خطأ التكرار (Unique constraint)
-    if (!error.message?.includes("Unique")) {
-      console.error("❌ [Telegram] خطأ في معالجة الرسالة:", error.message);
-    }
-  }
-}
-
-/**
- * إيقاف بوت تيليجرام بشكل نظيف
- */
-function stopTelegramScraper() {
-  if (bot) {
-    bot.stop();
-    console.log("🔴 Telegram Bot أوقف");
-  }
-}
-
-module.exports = { startTelegramScraper, stopTelegramScraper };
-=======
-// telegramScraper.js - جمع المهام من قنوات تيليجرام
-// يستخدم Telegram Bot API القانوني
-// ===================================================
-const { Telegraf } = require('telegraf')
-const { prisma }   = require('../../config/database')
-const { broadcastTask } = require('../../config/socket')
-const filterService    = require('../filterService')
+// telegramScraper.js — Telegram bot scraper
+const { Telegraf }             = require('telegraf')
+const { prisma }               = require('../../config/database')
+const { broadcastTask }        = require('../../config/socket')
+const { isTaskPost, extractTaskData } = require('../aiService')
 
 let bot = null
 
 async function startTelegramScraper() {
-  if (!process.env.TELEGRAM_BOT_TOKEN) {
-    console.log('⚠️ لا يوجد TELEGRAM_BOT_TOKEN - تخطي تيليجرام')
+  const token = process.env.TELEGRAM_BOT_TOKEN
+  if (!token || token === 'disabled' || token === 'your_telegram_bot_token_here') {
+    console.log('⚠️  Telegram scraper disabled (no token)')
     return
   }
 
-  bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
+  try {
+    bot = new Telegraf(token)
 
-  // الاستماع لكل رسالة ترد على البوت أو في القنوات
-  bot.on('message', async (ctx) => {
-    const text = ctx.message.text || ''
-    if (!text) return
+    bot.on('message',      async (ctx) => { await processMessage(ctx.message,      ctx.chat) })
+    bot.on('channel_post', async (ctx) => { await processMessage(ctx.channelPost,  ctx.chat) })
 
-    // فلترة ذكية: هل هذه الرسالة تحتوي على طلب عمل؟
-    const isTask = await filterService.isTaskPost(text)
-    if (!isTask) return
+    bot.launch()
 
-    // استخراج بيانات المهمة
-    const taskData = await filterService.extractTaskData(text, 'telegram')
-    
-    try {
-      // حفظ المهمة في قاعدة البيانات
-      const savedTask = await prisma.task.upsert({
-        where:  { externalId: String(ctx.message.message_id) },
-        update: {},
-        create: {
-          externalId:  String(ctx.message.message_id),
-          title:       taskData.title,
-          description: text,
-          skills:      taskData.skills,
-          budget:      taskData.budget,
-          source:      'telegram',
-          url:         `https://t.me/${ctx.chat.username}/${ctx.message.message_id}`,
-        },
-      })
+    process.once('SIGINT',  () => bot.stop('SIGINT'))
+    process.once('SIGTERM', () => bot.stop('SIGTERM'))
 
-      // إرسال المهمة الجديدة لكل المستخدمين المتصلين
-      broadcastTask(savedTask)
-      console.log(`✅ مهمة تيليجرام جديدة: ${savedTask.title}`)
-    } catch (error) {
-      console.error('خطأ في حفظ مهمة تيليجرام:', error.message)
+    console.log('📡 Telegram scraper running')
+  } catch (error) {
+    console.error('❌ Telegram bot start failed:', error.message)
+  }
+}
+
+async function processMessage(message, chat) {
+  if (!message) return
+  const text = message.text || message.caption || ''
+  if (!text || text.length < 20) return
+
+  const isTask = await isTaskPost(text)
+  if (!isTask) return
+
+  const source     = `telegram_${chat?.username || chat?.id || 'unknown'}`
+  const externalId = `tg_${message.message_id}_${chat?.id || 'unknown'}`
+
+  try {
+    const existing = await prisma.task.findUnique({ where: { externalId } })
+    if (existing) return
+  } catch { return }
+
+  const taskData = await extractTaskData(text, 'telegram')
+
+  try {
+    const savedTask = await prisma.task.create({
+      data: {
+        externalId,
+        title:       taskData.title || text.slice(0, 120),
+        description: text.slice(0, 1200),
+        skills:      taskData.skills || [],
+        budget:      taskData.budget,
+        source:      'telegram',
+        url:         chat?.username ? `https://t.me/${chat.username}/${message.message_id}` : null,
+        postedAt:    message.date ? new Date(message.date * 1000) : new Date(),
+      },
+    })
+    broadcastTask(savedTask)
+    console.log(`  📨 [telegram] ${savedTask.title.slice(0, 60)}`)
+  } catch (error) {
+    if (!error.message?.includes('Unique')) {
+      console.error('Telegram save error:', error.message)
     }
-  })
-
-  bot.launch()
-  console.log('📡 تيليجرام سكرابر يعمل')
+  }
 }
 
 module.exports = { startTelegramScraper }
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a

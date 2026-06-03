@@ -1,34 +1,18 @@
-// ===================================================
-<<<<<<< HEAD
-// database.js — إعداد Prisma / PostgreSQL
-// المسار: backend/src/config/database.js
-// ===================================================
-
+// database.js — Prisma / PostgreSQL connection
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 })
-
-async function connectDB() {
-  await prisma.$connect()
-  console.log('✅ PostgreSQL متصل')
-=======
-// database.js - إعداد الاتصال بقاعدة البيانات
-// ===================================================
-const { PrismaClient } = require('@prisma/client')
-
-const prisma = new PrismaClient()
 
 async function connectDB() {
   try {
     await prisma.$connect()
-    console.log('✅ متصل بقاعدة البيانات PostgreSQL')
-  } catch (error) {
-    console.error('❌ فشل الاتصال بقاعدة البيانات:', error)
-    throw error
+    console.log('✅ Database connected (Prisma)')
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message)
+    throw err
   }
->>>>>>> 22a803e267d6039fa8b6e56f42ee908d4fd7465a
 }
 
 module.exports = { prisma, connectDB }

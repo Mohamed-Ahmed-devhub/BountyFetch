@@ -1,37 +1,38 @@
-// ===== مُقرِّب Reddit =====
-// يستخدم Reddit JSON API (مجاني بدون مفتاح) لقراءة subreddits محددة
-// المصادر: r/forhire, r/webdev, r/css, r/javascript
-// TODO (الأسبوع 3): تفعيل الجلب الفعلي
+// redditScraper.js — Reddit JSON API (no key needed, uses built-in https)
+const https = require('https')
 
-import axios from 'axios'
+const SUBREDDITS = ['forhire', 'webdev']
 
-const SUBREDDITS = ['forhire', 'webdev', 'css', 'javascript']
+function httpsGet(url) {
+  return new Promise((resolve, reject) => {
+    const opts = new URL(url)
+    https.get({ ...opts, headers: { 'User-Agent': 'BountyFetch/1.0' } }, (res) => {
+      let data = ''
+      res.on('data', c => data += c)
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+      })
+    }).on('error', reject).setTimeout(8000, function() { this.destroy(new Error('timeout')) })
+  })
+}
 
-export async function scrapeReddit() {
+async function scrapeReddit() {
   const allPosts = []
-
   for (const subreddit of SUBREDDITS) {
     try {
-      // Reddit يوفر JSON API مجاني بدون أي مفتاح
-      const { data } = await axios.get(
-        `https://www.reddit.com/r/${subreddit}/new.json?limit=10`,
-        { headers: { 'User-Agent': 'TaskBountyAgent/1.0' } }
-      )
-
+      const data = await httpsGet(`https://www.reddit.com/r/${subreddit}/new.json?limit=10`)
       const posts = data.data.children.map(p => ({
-        source: 'reddit',
+        source:   'reddit',
         subreddit,
-        rawText: `${p.data.title}\n${p.data.selftext}`,
-        url: `https://reddit.com${p.data.permalink}`,
-        postedAt: new Date(p.data.created_utc * 1000)
+        rawText:  `${p.data.title}\n${p.data.selftext}`,
+        url:      `https://reddit.com${p.data.permalink}`,
+        postedAt: new Date(p.data.created_utc * 1000),
       }))
-
       allPosts.push(...posts)
     } catch (error) {
-      console.error(`خطأ في جلب r/${subreddit}:`, error.message)
+      console.error(`Reddit r/${subreddit} error:`, error.message)
     }
   }
-
   return allPosts
 }
-// سيتم بناء هذا الـ scraper في الأسبوع الثاني
+module.exports = { scrapeReddit }
