@@ -40,7 +40,7 @@ export default function Login() {
     setLoading(true); setError('')
     try {
       await signInWithEmail(form.email, form.password)
-      navigate('/dashboard')
+      // Navigation handled by AuthContext onAuthStateChange + Public route guard
     } catch (err) {
       setError(isRTL ? 'بيانات غير صحيحة — تحقق من البريد وكلمة المرور' : 'Invalid credentials — check email and password')
     } finally { setLoading(false) }

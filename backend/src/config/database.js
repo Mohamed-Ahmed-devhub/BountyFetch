@@ -1,17 +1,18 @@
-// database.js — Prisma / PostgreSQL connection
+// database.js — Prisma connection to Supabase PostgreSQL
 const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
 })
 
 async function connectDB() {
   try {
     await prisma.$connect()
-    console.log('✅ Database connected (Prisma)')
+    console.log('✅ Database connected (Prisma → Supabase)')
   } catch (err) {
     console.error('❌ Database connection failed:', err.message)
-    throw err
+    console.error('   Check DATABASE_URL in backend/.env')
+    throw err  // fail fast — no mock fallback in production
   }
 }
 

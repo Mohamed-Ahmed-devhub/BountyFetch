@@ -31,17 +31,26 @@ export default function Onboarding() {
       return
     }
     setSaving(true)
+    setError('')
     try {
-      // Save skills to backend
-      await api.put('/auth/profile', { skills: selected })
-      // Mark onboarded in Supabase profiles table
+      // 1. Update Supabase profiles table directly (source of truth for onboarded flag)
       if (user?.id) {
-        await supabase.from('profiles').upsert({ id: user.id, skills: selected, onboarded: true })
+        await supabase
+          .from('profiles')
+          .upsert({ id: user.id, skills: selected, onboarded: true }, { onConflict: 'id' })
       }
+      // 2. Sync to backend (non-blocking — backend may fail gracefully)
+      try {
+        await api.put('/auth/profile', { skills: selected, onboarded: true })
+      } catch (backendErr) {
+        console.warn('Backend sync non-fatal:', backendErr.message)
+      }
+      // 3. Update local user state and navigate
       updateUser({ skills: selected, onboarded: true })
       navigate('/dashboard', { replace: true })
     } catch (e) {
-      setError(e.response?.data?.message || (isRTL ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, please retry'))
+      console.error('Onboarding error:', e)
+      setError(e.message || (isRTL ? 'حدث خطأ، حاول مرة أخرى' : 'An error occurred, please retry'))
       setSaving(false)
     }
   }
@@ -93,7 +102,16 @@ export default function Onboarding() {
         {error && <p style={S.err}>{error}</p>}
         <div style={{ textAlign:'center', marginTop:'.75rem' }}>
           <button
-            onClick={() => navigate('/dashboard', { replace: true })}
+            onClick={async () => {
+              // Mark onboarded even on skip — otherwise dashboard is unreachable
+              try {
+                if (user?.id) {
+                  await supabase.from('profiles').upsert({ id: user.id, onboarded: true }, { onConflict: 'id' })
+                }
+                updateUser({ onboarded: true })
+              } catch(e) { console.warn('skip upsert:', e.message) }
+              navigate('/dashboard', { replace: true })
+            }}
             style={{ background:'none', border:'none', color:'#94A3B8', fontSize:'.82rem', cursor:'pointer', textDecoration:'underline' }}>
             {isRTL ? 'تخطّ الآن — يمكنني الإضافة لاحقاً' : "Skip for now — I'll add later"}
           </button>

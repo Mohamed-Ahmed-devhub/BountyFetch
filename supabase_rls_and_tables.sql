@@ -29,13 +29,25 @@ CREATE TABLE IF NOT EXISTS direct_messages (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ── 3. CHANNEL MESSAGES ────────────────────────────────
+-- ── 3. CHAT MESSAGES ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  room        TEXT    NOT NULL,
+  user_id     TEXT    NOT NULL,
+  user_name   TEXT    NOT NULL DEFAULT 'Dev',
+  user_avatar TEXT,
+  content     TEXT    NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS chat_messages_room_idx ON chat_messages(room);
+CREATE INDEX IF NOT EXISTS chat_messages_user_idx ON chat_messages(user_id);
+
+-- Legacy channel_messages (keep if already created, harmless)
 CREATE TABLE IF NOT EXISTS channel_messages (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel    TEXT NOT NULL,  -- 'web' | 'mobile' | 'ai' | 'security' | 'games' | 'general'
-  sender_id  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  channel    TEXT NOT NULL,
+  sender_id  TEXT NOT NULL,
   content    TEXT,
-  attachment_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -95,12 +107,17 @@ DROP POLICY IF EXISTS "dm_own_access" ON direct_messages;
 CREATE POLICY "dm_own_access" ON direct_messages FOR ALL
   USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
 
--- CHANNEL MESSAGES
+-- CHAT MESSAGES
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "chat_read_all"  ON chat_messages;
+DROP POLICY IF EXISTS "chat_own_write" ON chat_messages;
+CREATE POLICY "chat_read_all"  ON chat_messages FOR SELECT USING (true);
+CREATE POLICY "chat_own_write" ON chat_messages FOR ALL   USING (true);
+
+-- CHANNEL MESSAGES (legacy)
 ALTER TABLE channel_messages ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "channel_read_all"  ON channel_messages;
-DROP POLICY IF EXISTS "channel_own_write" ON channel_messages;
-CREATE POLICY "channel_read_all"  ON channel_messages FOR SELECT USING (true);
-CREATE POLICY "channel_own_write" ON channel_messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
+DROP POLICY IF EXISTS "channel_read_all" ON channel_messages;
+CREATE POLICY "channel_read_all" ON channel_messages FOR SELECT USING (true);
 
 -- NOTIFICATIONS
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
@@ -118,7 +135,7 @@ DROP POLICY IF EXISTS "saved_tasks_own" ON saved_tasks;
 CREATE POLICY "saved_tasks_own" ON saved_tasks FOR ALL USING (auth.uid() = user_id);
 
 -- ── Enable Realtime ─────────────────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE channel_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 
@@ -146,3 +163,43 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
+
+-- ═══════════════════════════════════════════════════════
+-- MIGRATION: Add extended profile columns
+-- Run this if the profiles table already exists without these columns
+-- ═══════════════════════════════════════════════════════
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS job_title       TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS linkedin_url    TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS github_url      TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS years_experience INT;
+
+-- Tasks table (Prisma manages this — create if not exists)
+CREATE TABLE IF NOT EXISTS tasks (
+  id           TEXT PRIMARY KEY,
+  external_id  TEXT UNIQUE NOT NULL,
+  title        TEXT NOT NULL,
+  description  TEXT NOT NULL DEFAULT '',
+  skills       TEXT[] DEFAULT '{}',
+  budget       TEXT,
+  source       TEXT NOT NULL,
+  url          TEXT,
+  domain       TEXT NOT NULL DEFAULT 'web',
+  posted_at    TIMESTAMPTZ DEFAULT NOW(),
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS tasks_source_idx   ON tasks(source);
+CREATE INDEX IF NOT EXISTS tasks_domain_idx   ON tasks(domain);
+CREATE INDEX IF NOT EXISTS tasks_posted_idx   ON tasks(posted_at DESC);
+
+-- Proposals table
+CREATE TABLE IF NOT EXISTS proposals (
+  id         TEXT PRIMARY KEY,
+  user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  task_id    TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  language   TEXT NOT NULL,
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, task_id)
+);
+CREATE INDEX IF NOT EXISTS proposals_user_idx ON proposals(user_id);
+CREATE INDEX IF NOT EXISTS proposals_task_idx ON proposals(task_id);

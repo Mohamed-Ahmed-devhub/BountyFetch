@@ -10,7 +10,7 @@ import { taskService }        from '../services/taskService.js'
 import { matchScore }         from '../utils/skillsMatcher.js'
 import TaskCard               from '../components/radar/TaskCard.jsx'
 import FilterPanel            from '../components/radar/FilterPanel.jsx'
-import MOCK_TASKS             from '../data/mockTasks.js'
+import { MOCK_TASKS } from '../data/mockTasks.js'
 
 const SOURCES = ['all', 'reddit', 'telegram', 'twitter']
 

@@ -87,8 +87,8 @@ export default function LandingPage() {
       <nav className="lp-nav">
         <span className="lp-logo">◈ BountyFetch</span>
         <div className="lp-nav-btns">
-          <button className="lp-btn-ghost" onClick={() => navigate('/auth/login')}>{isRTL?'تسجيل دخول':'Sign In'}</button>
-          <button className="lp-btn-primary" onClick={() => navigate('/auth/register')}>{isRTL?'ابدأ مجاناً':'Get Started'}</button>
+          <button className="lp-btn-ghost" onClick={() => navigate('/login')}>{isRTL?'تسجيل دخول':'Sign In'}</button>
+          <button className="lp-btn-primary" onClick={() => navigate('/register')}>{isRTL?'ابدأ مجاناً':'Get Started'}</button>
         </div>
       </nav>
 
@@ -102,8 +102,8 @@ export default function LandingPage() {
             <p className="lp-online"><span className="lp-dot"/> {stats.onlineNow} {T.online}</p>
           )}
           <div className="lp-cta-row">
-            <button className="lp-btn-hero" onClick={() => navigate('/auth/register')}>{T.cta_start}</button>
-            <button className="lp-btn-ghost lp-btn-lg" onClick={() => navigate('/auth/login')}>{T.cta_demo}</button>
+            <button className="lp-btn-hero" onClick={() => navigate('/register')}>{T.cta_start}</button>
+            <button className="lp-btn-ghost lp-btn-lg" onClick={() => navigate('/login')}>{T.cta_demo}</button>
           </div>
         </div>
       </section>
@@ -159,7 +159,7 @@ export default function LandingPage() {
           <h2 className="lp-cta-title">{T.cta_h}</h2>
           <p className="lp-cta-sub">{T.cta_sub}</p>
           <div className="lp-cta-row">
-            <button className="lp-btn-hero" onClick={() => navigate('/auth/register')}>{T.cta_start}</button>
+            <button className="lp-btn-hero" onClick={() => navigate('/register')}>{T.cta_start}</button>
           </div>
         </div>
       </section>

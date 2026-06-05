@@ -20,7 +20,7 @@ exports.generateProposal = async (req, res, next) => {
 
     // Persist proposal
     await prisma.proposal.upsert({
-      where:  { userId_taskId: { userId: req.userId, taskId } },
+      where:  { userId_taskId: { userId: req.userId, taskId } },  // uses @@unique
       update: { language, content: typeof proposal === 'object' ? proposal[language] || proposal.ar : proposal },
       create: {
         userId:   req.userId,

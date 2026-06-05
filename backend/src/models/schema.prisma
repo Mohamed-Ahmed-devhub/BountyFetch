@@ -1,39 +1,43 @@
-// schema.prisma — BountyFetch v3 — Production Ready
+// schema.prisma — aligned to actual Supabase database structure
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
 }
 
+// ── User profile — maps to the "profiles" table in Supabase ──────────────────
 model User {
-  id              String   @id
-  name            String
-  email           String   @unique
-  password        String   @default("")
-  avatar          String?
-  skills          String[]
-  bio             String?  @db.Text
-  jobTitle        String?
-  linkedinUrl     String?
-  githubUrl       String?
-  yearsExperience Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id  @db.Uuid
+  name           String?
+  email          String?
+  avatarUrl      String?  @map("avatar_url")
+  bio            String?  @db.Text
+  role           String?  @default("freelancer")
+  specialty      String?
+  skills         String[]
+  jobTitle       String?  @map("job_title")
+  linkedinUrl    String?  @map("linkedin_url")
+  githubUrl      String?  @map("github_url")
+  yearsExperience Int?    @map("years_experience")
+  onboarded      Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt      @map("updated_at")
 
-  savedTasks SavedTask[]
   proposals  Proposal[]
   tickets    Ticket[]
 
-  @@index([email])
-  @@map("users")
+  @@map("profiles")
 }
 
+// ── Task — scraped from external sources ─────────────────────────────────────
 model Task {
   id          String   @id @default(cuid())
-  externalId  String   @unique
+  externalId  String   @unique @map("external_id")
   title       String
   description String   @db.Text
   skills      String[]
@@ -41,10 +45,9 @@ model Task {
   source      String
   url         String?
   domain      String   @default("web")
-  postedAt    DateTime @default(now())
-  createdAt   DateTime @default(now())
+  postedAt    DateTime @default(now()) @map("posted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  savedBy   SavedTask[]
   proposals Proposal[]
 
   @@index([source])
@@ -53,65 +56,72 @@ model Task {
   @@map("tasks")
 }
 
+// ── Saved tasks — uses Supabase saved_tasks table ────────────────────────────
+// Note: DB has UUID PK + unique(user_id, task_id) — no composite PK
 model SavedTask {
-  userId  String
-  taskId  String
-  savedAt DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  taskId    String   @map("task_id")
+  taskTitle String?  @map("task_title")
+  source    String?
+  budget    String?
+  status    String   @default("active")
+  savedAt   DateTime @default(now()) @map("saved_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@id([userId, taskId])
+  @@unique([userId, taskId])
   @@index([userId])
-  @@index([taskId])
   @@map("saved_tasks")
 }
 
+// ── Proposals — AI-generated ──────────────────────────────────────────────────
 model Proposal {
   id        String   @id @default(cuid())
-  userId    String
-  taskId    String
+  userId    String   @map("user_id") @db.Uuid
+  taskId    String   @map("task_id")
   language  String
   content   String   @db.Text
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, taskId])
   @@index([userId])
   @@index([taskId])
   @@map("proposals")
 }
 
+// ── Chat messages ─────────────────────────────────────────────────────────────
 model ChatMessage {
-  id        String   @id @default(cuid())
-  room      String
-  userId    String
-  userName  String
-  userAvatar String?
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  room       String
+  userId     String   @map("user_id")
+  userName   String   @map("user_name")
+  userAvatar String?  @map("user_avatar")
+  content    String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([room])
   @@index([userId])
-  @@index([createdAt])
   @@map("chat_messages")
 }
 
+// ── Support tickets ───────────────────────────────────────────────────────────
 model Ticket {
-  id          String   @id @default(cuid())
-  userId      String
-  type        String
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  type        String?
   title       String
   description String   @db.Text
-  screenshot  String?
+  screenshot  String?  @map("screenshot_url")
   status      String   @default("open")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  adminReply  String?  @map("admin_reply")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
-  @@map("tickets")
+  @@map("support_tickets")
 }

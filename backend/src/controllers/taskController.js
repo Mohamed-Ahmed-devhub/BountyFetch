@@ -97,7 +97,11 @@ exports.saveTask = async (req, res, next) => {
       create: { userId: req.userId, taskId: req.params.id },
     })
     res.json({ message: 'Task saved' })
-  } catch (e) { next(e) }
+  } catch (e) {
+    // If task doesn't exist in tasks table yet, saved_tasks FK will fail — ignore
+    if (e.code === 'P2003') return res.status(404).json({ message: 'Task not found' })
+    next(e)
+  }
 }
 
 // GET /api/tasks/saved
@@ -105,10 +109,9 @@ exports.getSavedTasks = async (req, res, next) => {
   try {
     const saved = await prisma.savedTask.findMany({
       where:   { userId: req.userId },
-      include: { task: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { savedAt: 'desc' },
     })
-    res.json({ tasks: saved.map(s => s.task), ids: saved.map(s => s.taskId) })
+    res.json({ tasks: saved, ids: saved.map(s => s.taskId) })
   } catch (e) { next(e) }
 }
 
